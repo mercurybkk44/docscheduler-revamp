@@ -5,6 +5,11 @@ function isWeekendOrHoliday(dateStr: string, holidayDates: Set<string>): boolean
   return d.getDay() === 0 || d.getDay() === 6 || holidayDates.has(dateStr);
 }
 
+function isFriday(dateStr: string): boolean {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.getDay() === 5;
+}
+
 function getDaysInMonth(year: number, month: number): string[] {
   const days: string[] = [];
   const daysCount = new Date(year, month + 1, 0).getDate();
@@ -48,6 +53,19 @@ export function generateSchedule(
     weekendCounts.set(doc.id, 0);
   }
 
+  // Friday constraint: count Fridays in month and set max per doctor
+  const totalFridays = days.filter(d => isFriday(d)).length;
+  const maxFridayPerDoctor = totalFridays <= 4 ? 1 : 2;
+  const fridayCounts = new Map<string, number>();
+  for (const doc of doctors) {
+    fridayCounts.set(doc.id, 0);
+  }
+
+  const canDoFriday = (docId: string, dateStr: string): boolean => {
+    if (!isFriday(dateStr)) return true;
+    return fridayCounts.get(docId)! < maxFridayPerDoctor;
+  };
+
   const hasQuota = (docId: string, weekend: boolean) => {
     const doc = doctors.find(d => d.id === docId)!;
     const count = weekend ? weekendCounts.get(docId)! : weekdayCounts.get(docId)!;
@@ -55,9 +73,10 @@ export function generateSchedule(
     return count < quota;
   };
 
-  const addCount = (docId: string, weekend: boolean) => {
+  const addCount = (docId: string, weekend: boolean, dateStr: string) => {
     if (weekend) weekendCounts.set(docId, weekendCounts.get(docId)! + 1);
     else weekdayCounts.set(docId, weekdayCounts.get(docId)! + 1);
+    if (isFriday(dateStr)) fridayCounts.set(docId, fridayCounts.get(docId)! + 1);
   };
 
   // Helper: sort doctors by type-specific quota room (most room first), then lowest total
@@ -91,14 +110,14 @@ export function generateSchedule(
     const preferred = preferredMap.get(day)!;
 
     const candidates = doctors.filter(doc =>
-      preferred.has(doc.id) && !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+      preferred.has(doc.id) && !unavailable.has(doc.id) && hasQuota(doc.id, weekend) && canDoFriday(doc.id, day)
     );
 
     if (candidates.length === 0) continue;
 
     sortByQuotaRoom(candidates, weekend);
     assignments.set(day, candidates[0].id);
-    addCount(candidates[0].id, weekend);
+    addCount(candidates[0].id, weekend, day);
   }
 
   // ===== PASS 2: Fill remaining days =====
@@ -114,26 +133,26 @@ export function generateSchedule(
     const unavailable = unavailableMap.get(day) || new Set();
 
     const eligible = doctors.filter(doc =>
-      !unavailable.has(doc.id) && doc.id !== lastAssigned && hasQuota(doc.id, weekend)
+      !unavailable.has(doc.id) && doc.id !== lastAssigned && hasQuota(doc.id, weekend) && canDoFriday(doc.id, day)
     );
 
     if (eligible.length > 0) {
       sortByQuotaRoom(eligible, weekend);
       assignments.set(day, eligible[0].id);
-      addCount(eligible[0].id, weekend);
+      addCount(eligible[0].id, weekend, day);
       lastAssigned = eligible[0].id;
       continue;
     }
 
     // Fallback: relax consecutive constraint
     const fallback = doctors.filter(doc =>
-      !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+      !unavailable.has(doc.id) && hasQuota(doc.id, weekend) && canDoFriday(doc.id, day)
     );
 
     if (fallback.length > 0) {
       sortByQuotaRoom(fallback, weekend);
       assignments.set(day, fallback[0].id);
-      addCount(fallback[0].id, weekend);
+      addCount(fallback[0].id, weekend, day);
       lastAssigned = fallback[0].id;
     } else {
       lastAssigned = null;
@@ -148,13 +167,13 @@ export function generateSchedule(
     const unavailable = unavailableMap.get(day) || new Set();
 
     const withQuota = doctors.filter(doc =>
-      !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+      !unavailable.has(doc.id) && hasQuota(doc.id, weekend) && canDoFriday(doc.id, day)
     );
-    if (withQuota.length === 0) continue; // leave unassigned rather than exceed quota
+    if (withQuota.length === 0) continue;
 
     sortByQuotaRoom(withQuota, weekend);
     assignments.set(day, withQuota[0].id);
-    addCount(withQuota[0].id, weekend);
+    addCount(withQuota[0].id, weekend, day);
   }
 
   // ===== PASS 2.6: Rebalance to satisfy missing quota using unassigned days =====
@@ -175,21 +194,19 @@ export function generateSchedule(
 
     for (const item of deficits) {
       while (item.deficit > 0 && unassigned.length > 0) {
-        // 1) Try direct assignment from unassigned day
         const directIdx = unassigned.findIndex(day => {
           const unavailable = unavailableMap.get(day) || new Set();
-          return !unavailable.has(item.doc.id);
+          return !unavailable.has(item.doc.id) && canDoFriday(item.doc.id, day);
         });
 
         if (directIdx !== -1) {
           const day = unassigned.splice(directIdx, 1)[0];
           assignments.set(day, item.doc.id);
-          addCount(item.doc.id, weekend);
+          addCount(item.doc.id, weekend, day);
           item.deficit--;
           continue;
         }
 
-        // 2) Try swap: give one assigned day to deficit doctor and move donor to an unassigned day
         let swapped = false;
         for (const day of days) {
           if (isWeekendOrHoliday(day, holidayDates) !== weekend) continue;
@@ -198,22 +215,29 @@ export function generateSchedule(
 
           const unavailableOnAssigned = unavailableMap.get(day) || new Set();
           if (unavailableOnAssigned.has(item.doc.id)) continue;
+          if (!canDoFriday(item.doc.id, day)) continue;
 
-          // Avoid breaking preferred day for donor when possible
           const donorPreferred = preferredMap.get(day);
           if (donorPreferred?.has(donorId)) continue;
 
           const fallbackIdx = unassigned.findIndex(freeDay => {
             const unavailableOnFree = unavailableMap.get(freeDay) || new Set();
-            return !unavailableOnFree.has(donorId);
+            return !unavailableOnFree.has(donorId) && canDoFriday(donorId, freeDay);
           });
 
           if (fallbackIdx === -1) continue;
 
           const freeDay = unassigned.splice(fallbackIdx, 1)[0];
+          // Adjust friday counts for swap
+          if (isFriday(day)) {
+            fridayCounts.set(donorId, fridayCounts.get(donorId)! - 1);
+          }
           assignments.set(day, item.doc.id);
           assignments.set(freeDay, donorId);
-          addCount(item.doc.id, weekend); // donor keeps same type count via moved day
+          addCount(item.doc.id, weekend, day);
+          if (isFriday(freeDay)) {
+            fridayCounts.set(donorId, fridayCounts.get(donorId)! + 1);
+          }
           item.deficit--;
           swapped = true;
           break;
@@ -224,8 +248,8 @@ export function generateSchedule(
     }
   };
 
-  rebalanceForType(false); // weekday
-  rebalanceForType(true);  // weekend
+  rebalanceForType(false);
+  rebalanceForType(true);
 
   // ===== PASS 3: Fix consecutive assignments =====
   const sortedDays = days.filter(d => assignments.has(d));
@@ -245,7 +269,7 @@ export function generateSchedule(
       const weekend = isWeekendOrHoliday(currDay, holidayDates);
       const unavailable = unavailableMap.get(currDay) || new Set();
       const alt = doctors.find(doc =>
-        doc.id !== currDoc && !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+        doc.id !== currDoc && !unavailable.has(doc.id) && hasQuota(doc.id, weekend) && canDoFriday(doc.id, currDay)
       );
     }
   }
