@@ -146,19 +146,30 @@ export function generateSchedule(
     const weekend = isWeekendOrHoliday(day, holidayDates);
     const unavailable = unavailableMap.get(day) || new Set();
 
-    // Pick the doctor with the lowest total shifts, ignoring quota
-    const candidates = doctors
-      .filter(doc => !unavailable.has(doc.id))
-      .sort((a, b) => {
-        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-        return totalA - totalB;
-      });
+    const available = doctors.filter(doc => !unavailable.has(doc.id));
+    if (available.length === 0) continue;
 
-    if (candidates.length > 0) {
-      assignments.set(day, candidates[0].id);
-      addCount(candidates[0].id, weekend);
-    }
+    // Prefer doctors who still have quota for THIS specific type
+    const withTypeQuota = available.filter(doc => hasQuota(doc.id, weekend));
+
+    const pool = withTypeQuota.length > 0 ? withTypeQuota : available;
+
+    pool.sort((a, b) => {
+      // Sort by how far under their specific-type quota they are (descending room)
+      const roomA = weekend
+        ? a.weekend_quota - weekendCounts.get(a.id)!
+        : a.weekday_quota - weekdayCounts.get(a.id)!;
+      const roomB = weekend
+        ? b.weekend_quota - weekendCounts.get(b.id)!
+        : b.weekday_quota - weekdayCounts.get(b.id)!;
+      if (roomB !== roomA) return roomB - roomA; // more room first
+      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
+      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
+      return totalA - totalB;
+    });
+
+    assignments.set(day, pool[0].id);
+    addCount(pool[0].id, weekend);
   }
 
   // ===== PASS 3: Fix consecutive assignments =====
