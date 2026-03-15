@@ -60,6 +60,22 @@ export function generateSchedule(
     else weekdayCounts.set(docId, weekdayCounts.get(docId)! + 1);
   };
 
+  // Helper: sort doctors by type-specific quota room (most room first), then lowest total
+  const sortByQuotaRoom = (list: Doctor[], weekend: boolean) => {
+    list.sort((a, b) => {
+      const roomA = weekend
+        ? a.weekend_quota - weekendCounts.get(a.id)!
+        : a.weekday_quota - weekdayCounts.get(a.id)!;
+      const roomB = weekend
+        ? b.weekend_quota - weekendCounts.get(b.id)!
+        : b.weekday_quota - weekdayCounts.get(b.id)!;
+      if (roomB !== roomA) return roomB - roomA;
+      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
+      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
+      return totalA - totalB;
+    });
+  };
+
   // ===== PASS 1: Reserve preferred dates =====
   const prefDays = days.filter(day => preferredMap.has(day));
 
@@ -80,12 +96,7 @@ export function generateSchedule(
 
     if (candidates.length === 0) continue;
 
-    candidates.sort((a, b) => {
-      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-      return totalA - totalB;
-    });
-
+    sortByQuotaRoom(candidates, weekend);
     assignments.set(day, candidates[0].id);
     addCount(candidates[0].id, weekend);
   }
@@ -94,7 +105,6 @@ export function generateSchedule(
   let lastAssigned: string | null = null;
 
   for (const day of days) {
-    // Already assigned in pass 1
     if (assignments.has(day)) {
       lastAssigned = assignments.get(day)!;
       continue;
@@ -108,11 +118,7 @@ export function generateSchedule(
     );
 
     if (eligible.length > 0) {
-      eligible.sort((a, b) => {
-        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-        return totalA - totalB;
-      });
+      sortByQuotaRoom(eligible, weekend);
       assignments.set(day, eligible[0].id);
       addCount(eligible[0].id, weekend);
       lastAssigned = eligible[0].id;
@@ -125,16 +131,11 @@ export function generateSchedule(
     );
 
     if (fallback.length > 0) {
-      fallback.sort((a, b) => {
-        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-        return totalA - totalB;
-      });
+      sortByQuotaRoom(fallback, weekend);
       assignments.set(day, fallback[0].id);
       addCount(fallback[0].id, weekend);
       lastAssigned = fallback[0].id;
     } else {
-      // No doctor with quota available — will be handled in pass 4
       lastAssigned = null;
     }
   }
@@ -151,23 +152,9 @@ export function generateSchedule(
 
     // Prefer doctors who still have quota for THIS specific type
     const withTypeQuota = available.filter(doc => hasQuota(doc.id, weekend));
-
     const pool = withTypeQuota.length > 0 ? withTypeQuota : available;
 
-    pool.sort((a, b) => {
-      // Sort by how far under their specific-type quota they are (descending room)
-      const roomA = weekend
-        ? a.weekend_quota - weekendCounts.get(a.id)!
-        : a.weekday_quota - weekdayCounts.get(a.id)!;
-      const roomB = weekend
-        ? b.weekend_quota - weekendCounts.get(b.id)!
-        : b.weekday_quota - weekdayCounts.get(b.id)!;
-      if (roomB !== roomA) return roomB - roomA; // more room first
-      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-      return totalA - totalB;
-    });
-
+    sortByQuotaRoom(pool, weekend);
     assignments.set(day, pool[0].id);
     addCount(pool[0].id, weekend);
   }
