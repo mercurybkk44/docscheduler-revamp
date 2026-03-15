@@ -165,6 +165,28 @@ export default function UnavailablePage() {
       </Card>
 
       {selectedDoctor && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
+                  {selectedDoctor.name} — Shift Quota Summary
+                </p>
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+                  <span>Weekday shifts: <strong className="text-foreground">{selectedDoctor.weekday_quota}</strong> <span className="text-xs">/ {totalWeekdays} weekdays</span></span>
+                  <span>Weekend shifts: <strong className="text-foreground">{selectedDoctor.weekend_quota}</strong> <span className="text-xs">/ {totalWeekendDays} weekend days</span></span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Mark dates this doctor <span className="font-medium text-destructive">cannot</span> work as unavailable, and dates they <span className="font-medium text-yellow-600">prefer</span> to work as preferred.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedDoctor && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Unavailable Dates Panel */}
           <Card>
