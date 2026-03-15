@@ -128,6 +128,27 @@
   min-height: 90px;
 }
 
+@media (max-width: 640px) {
+  .fc .fc-daygrid-day {
+    min-height: 50px;
+  }
+  .fc .fc-event {
+    font-size: 0.65rem;
+    padding: 1px 3px;
+  }
+  .fc .fc-col-header-cell {
+    font-size: 0.65rem;
+    padding: 0.3rem 0;
+  }
+  .fc .fc-daygrid-day-number {
+    font-size: 0.75rem;
+    padding: 3px 5px;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 1rem !important;
+  }
+}
+
 .fc .fc-daygrid-day:hover {
   background: hsl(var(--primary) / 0.04);
 }

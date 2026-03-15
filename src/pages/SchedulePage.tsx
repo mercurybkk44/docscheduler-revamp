@@ -191,18 +191,18 @@ export default function SchedulePage() {
   if (loading) return <div className="text-center py-16 text-muted-foreground">Loading...</div>;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" />
+        <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           Schedule Generator
         </h1>
-        <p className="text-muted-foreground mt-1">Generate the on-call schedule for <strong>{monthLabel}</strong>.</p>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">Generate the on-call schedule for <strong>{monthLabel}</strong>.</p>
       </div>
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
             <div className="text-sm font-medium px-4 py-2 rounded-md bg-secondary text-secondary-foreground">
               Scheduling for: <strong>{monthLabel}</strong>
             </div>
@@ -249,8 +249,8 @@ export default function SchedulePage() {
       {doctors.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-base">Schedule Summary — {monthLabel}</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
+          <CardContent className="overflow-x-auto">
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Doctor</TableHead>
