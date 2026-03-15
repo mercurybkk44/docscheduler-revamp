@@ -1,8 +1,8 @@
 import { Doctor, ScheduleEntry } from './types';
 
-function isWeekend(dateStr: string): boolean {
+function isWeekendOrHoliday(dateStr: string, holidayDates: Set<string>): boolean {
   const d = new Date(dateStr + 'T00:00:00');
-  return d.getDay() === 0 || d.getDay() === 6;
+  return d.getDay() === 0 || d.getDay() === 6 || holidayDates.has(dateStr);
 }
 
 function getDaysInMonth(year: number, month: number): string[] {
