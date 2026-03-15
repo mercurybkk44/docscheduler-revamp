@@ -13,6 +13,9 @@ import { Doctor, ScheduleEntry, DOCTOR_COLORS, DOCTOR_BG_COLORS } from '@/lib/ty
 import {
   loadDoctors, loadUnavailableDates, loadPreferredDates, loadHolidays,
   loadSchedule, saveScheduleEntries, updateScheduleEntry, deleteScheduleEntry, clearSchedule
+import {
+  loadDoctors, loadUnavailableDates, loadPreferredDates, loadHolidays,
+  loadSchedule, saveScheduleEntries, updateScheduleEntry, deleteScheduleEntry, clearAllData
 } from '@/lib/store';
 import { generateSchedule } from '@/lib/scheduler';
 import { getNextMonth, getNextMonthLabel, getNextMonthPrefix } from '@/lib/nextMonth';
