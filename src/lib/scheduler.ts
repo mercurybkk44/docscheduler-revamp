@@ -140,23 +140,21 @@ export function generateSchedule(
     }
   }
 
-  // ===== PASS 2.5: Force-fill unassigned days (quota exceeded) =====
+  // ===== PASS 2.5: Fill unassigned days (only if quota allows) =====
   for (const day of days) {
     if (assignments.has(day)) continue;
 
     const weekend = isWeekendOrHoliday(day, holidayDates);
     const unavailable = unavailableMap.get(day) || new Set();
 
-    const available = doctors.filter(doc => !unavailable.has(doc.id));
-    if (available.length === 0) continue;
+    const withQuota = doctors.filter(doc =>
+      !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+    );
+    if (withQuota.length === 0) continue; // leave unassigned rather than exceed quota
 
-    // Prefer doctors who still have quota for THIS specific type
-    const withTypeQuota = available.filter(doc => hasQuota(doc.id, weekend));
-    const pool = withTypeQuota.length > 0 ? withTypeQuota : available;
-
-    sortByQuotaRoom(pool, weekend);
-    assignments.set(day, pool[0].id);
-    addCount(pool[0].id, weekend);
+    sortByQuotaRoom(withQuota, weekend);
+    assignments.set(day, withQuota[0].id);
+    addCount(withQuota[0].id, weekend);
   }
 
   // ===== PASS 3: Fix consecutive assignments =====
