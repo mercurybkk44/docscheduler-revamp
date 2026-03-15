@@ -12,6 +12,9 @@ export default {
         "2xl": "1400px",
       },
     },
+    fontFamily: {
+      sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -38,6 +41,10 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+        },
+        weekend: {
+          DEFAULT: "hsl(var(--weekend))",
+          foreground: "hsl(var(--weekend-foreground))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
