@@ -254,6 +254,7 @@ export default function SchedulePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Doctor</TableHead>
+                  <TableHead>Quota</TableHead>
                   <TableHead>Unavailable Dates</TableHead>
                   <TableHead>Preferred Dates</TableHead>
                   <TableHead className="text-center">Weekday</TableHead>
