@@ -254,6 +254,7 @@ export default function SchedulePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Doctor</TableHead>
+                  <TableHead>Quota</TableHead>
                   <TableHead>Unavailable Dates</TableHead>
                   <TableHead>Preferred Dates</TableHead>
                   <TableHead className="text-center">Weekday</TableHead>
@@ -268,6 +269,12 @@ export default function SchedulePage() {
                       <div className="flex items-center gap-2">
                         <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: DOCTOR_COLORS[row.doctor.color_index] }} />
                         <span className="font-medium">{row.doctor.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm leading-relaxed">
+                        <div>Weekday: <strong>{row.doctor.weekday_quota}</strong> shifts</div>
+                        <div>Weekend: <strong>{row.doctor.weekend_quota}</strong> shifts</div>
                       </div>
                     </TableCell>
                     <TableCell>
