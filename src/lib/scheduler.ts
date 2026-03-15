@@ -80,11 +80,7 @@ export function generateSchedule(
 
     if (candidates.length === 0) continue;
 
-    candidates.sort((a, b) => {
-      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-      return totalA - totalB;
-    });
+    sortByQuotaRoom(candidates, weekend);
 
     assignments.set(day, candidates[0].id);
     addCount(candidates[0].id, weekend);
