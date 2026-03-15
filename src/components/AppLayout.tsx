@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { Users, CalendarOff, CalendarDays } from 'lucide-react';
+import { Users, CalendarOff, CalendarDays, PartyPopper } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: 'Doctors', icon: Users },
-  { to: '/unavailable', label: 'Unavailable Dates', icon: CalendarOff },
+  { to: '/availability', label: 'Availability', icon: CalendarOff },
+  { to: '/holidays', label: 'Holidays', icon: PartyPopper },
   { to: '/schedule', label: 'Schedule', icon: CalendarDays },
 ];
 

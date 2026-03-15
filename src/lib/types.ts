@@ -1,19 +1,34 @@
 export interface Doctor {
   id: string;
   name: string;
-  weekdayQuota: number;
-  weekendQuota: number;
-  colorIndex: number;
+  weekday_quota: number;
+  weekend_quota: number;
+  color_index: number;
 }
 
 export interface UnavailableDate {
-  doctorId: string;
+  id: string;
+  doctor_id: string;
   date: string; // YYYY-MM-DD
 }
 
-export interface ScheduleEntry {
+export interface PreferredDate {
+  id: string;
+  doctor_id: string;
   date: string; // YYYY-MM-DD
-  doctorId: string;
+}
+
+export interface Holiday {
+  id: string;
+  date: string; // YYYY-MM-DD
+  label: string | null;
+}
+
+export interface ScheduleEntry {
+  id?: string;
+  date: string; // YYYY-MM-DD
+  doctor_id: string;
+  type: 'weekday' | 'weekend';
 }
 
 export const DOCTOR_COLORS = [
