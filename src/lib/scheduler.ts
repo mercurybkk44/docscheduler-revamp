@@ -132,9 +132,17 @@ export function generateSchedule(
     const weekend = isWeekendOrHoliday(day, holidayDates);
     const unavailable = unavailableMap.get(day) || new Set();
 
-    const eligible = doctors.filter(doc =>
+    // Try with Friday constraint first
+    let eligible = doctors.filter(doc =>
       !unavailable.has(doc.id) && doc.id !== lastAssigned && hasQuota(doc.id, weekend) && canDoFriday(doc.id, day)
     );
+
+    // Relax Friday constraint if no candidates
+    if (eligible.length === 0 && isFriday(day)) {
+      eligible = doctors.filter(doc =>
+        !unavailable.has(doc.id) && doc.id !== lastAssigned && hasQuota(doc.id, weekend)
+      );
+    }
 
     if (eligible.length > 0) {
       sortByQuotaRoom(eligible, weekend);
@@ -144,10 +152,17 @@ export function generateSchedule(
       continue;
     }
 
-    // Fallback: relax consecutive constraint
-    const fallback = doctors.filter(doc =>
+    // Fallback: relax consecutive constraint (with Friday constraint)
+    let fallback = doctors.filter(doc =>
       !unavailable.has(doc.id) && hasQuota(doc.id, weekend) && canDoFriday(doc.id, day)
     );
+
+    // Relax Friday constraint if no candidates
+    if (fallback.length === 0 && isFriday(day)) {
+      fallback = doctors.filter(doc =>
+        !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+      );
+    }
 
     if (fallback.length > 0) {
       sortByQuotaRoom(fallback, weekend);
