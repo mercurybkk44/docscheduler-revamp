@@ -272,6 +272,12 @@ export default function SchedulePage() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      <div className="text-sm leading-relaxed">
+                        <div>Weekday: <strong>{row.doctor.weekday_quota}</strong> shifts</div>
+                        <div>Weekend: <strong>{row.doctor.weekend_quota}</strong> shifts</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       {row.unavailDates.length === 0 ? (
                         <span className="text-muted-foreground text-sm">None</span>
                       ) : (
