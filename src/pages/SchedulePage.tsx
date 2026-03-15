@@ -202,7 +202,7 @@ export default function SchedulePage() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 sm:gap-4">
             <div className="text-sm font-medium px-4 py-2 rounded-md bg-secondary text-secondary-foreground">
               Scheduling for: <strong>{monthLabel}</strong>
             </div>
