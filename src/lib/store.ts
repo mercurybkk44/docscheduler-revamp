@@ -127,3 +127,15 @@ export async function clearSchedule(): Promise<void> {
   const { error } = await supabase.from('schedules').delete().neq('id', '00000000-0000-0000-0000-000000000000');
   if (error) throw error;
 }
+
+export async function clearAllData(): Promise<void> {
+  const results = await Promise.all([
+    supabase.from('schedules').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('unavailable_dates').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('preferred_dates').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+    supabase.from('holidays').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+  ]);
+  for (const { error } of results) {
+    if (error) throw error;
+  }
+}

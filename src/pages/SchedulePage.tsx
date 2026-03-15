@@ -76,11 +76,14 @@ export default function SchedulePage() {
 
   const handleReset = async () => {
     try {
-      await clearSchedule();
+      await clearAllData();
       setSchedule([]);
-      toast.success('Schedule cleared');
+      setUnavailable([]);
+      setPreferred([]);
+      setHolidays([]);
+      toast.success('All data cleared (schedule, availability, holidays)');
     } catch (e) {
-      toast.error('Failed to clear schedule');
+      toast.error('Failed to clear data');
     }
   };
 
