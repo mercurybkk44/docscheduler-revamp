@@ -157,6 +157,76 @@ export function generateSchedule(
     addCount(withQuota[0].id, weekend);
   }
 
+  // ===== PASS 2.6: Rebalance to satisfy missing quota using unassigned days =====
+  const rebalanceForType = (weekend: boolean) => {
+    const unassigned = days.filter(
+      day => !assignments.has(day) && isWeekendOrHoliday(day, holidayDates) === weekend
+    );
+    if (unassigned.length === 0) return;
+
+    const deficits = doctors
+      .map(doc => {
+        const count = weekend ? weekendCounts.get(doc.id)! : weekdayCounts.get(doc.id)!;
+        const quota = weekend ? doc.weekend_quota : doc.weekday_quota;
+        return { doc, deficit: quota - count };
+      })
+      .filter(item => item.deficit > 0)
+      .sort((a, b) => b.deficit - a.deficit);
+
+    for (const item of deficits) {
+      while (item.deficit > 0 && unassigned.length > 0) {
+        // 1) Try direct assignment from unassigned day
+        const directIdx = unassigned.findIndex(day => {
+          const unavailable = unavailableMap.get(day) || new Set();
+          return !unavailable.has(item.doc.id);
+        });
+
+        if (directIdx !== -1) {
+          const day = unassigned.splice(directIdx, 1)[0];
+          assignments.set(day, item.doc.id);
+          addCount(item.doc.id, weekend);
+          item.deficit--;
+          continue;
+        }
+
+        // 2) Try swap: give one assigned day to deficit doctor and move donor to an unassigned day
+        let swapped = false;
+        for (const day of days) {
+          if (isWeekendOrHoliday(day, holidayDates) !== weekend) continue;
+          const donorId = assignments.get(day);
+          if (!donorId || donorId === item.doc.id) continue;
+
+          const unavailableOnAssigned = unavailableMap.get(day) || new Set();
+          if (unavailableOnAssigned.has(item.doc.id)) continue;
+
+          // Avoid breaking preferred day for donor when possible
+          const donorPreferred = preferredMap.get(day);
+          if (donorPreferred?.has(donorId)) continue;
+
+          const fallbackIdx = unassigned.findIndex(freeDay => {
+            const unavailableOnFree = unavailableMap.get(freeDay) || new Set();
+            return !unavailableOnFree.has(donorId);
+          });
+
+          if (fallbackIdx === -1) continue;
+
+          const freeDay = unassigned.splice(fallbackIdx, 1)[0];
+          assignments.set(day, item.doc.id);
+          assignments.set(freeDay, donorId);
+          addCount(item.doc.id, weekend); // donor keeps same type count via moved day
+          item.deficit--;
+          swapped = true;
+          break;
+        }
+
+        if (!swapped) break;
+      }
+    }
+  };
+
+  rebalanceForType(false); // weekday
+  rebalanceForType(true);  // weekend
+
   // ===== PASS 3: Fix consecutive assignments =====
   const sortedDays = days.filter(d => assignments.has(d));
   for (let i = 1; i < sortedDays.length; i++) {
