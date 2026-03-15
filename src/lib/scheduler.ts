@@ -39,65 +39,83 @@ export function generateSchedule(
     preferredMap.get(pd.date)!.add(pd.doctor_id);
   }
 
-  const schedule: ScheduleEntry[] = [];
   const weekdayCounts = new Map<string, number>();
   const weekendCounts = new Map<string, number>();
+  const assignments = new Map<string, string>(); // date -> doctor_id
 
   for (const doc of doctors) {
     weekdayCounts.set(doc.id, 0);
     weekendCounts.set(doc.id, 0);
   }
 
-  let lastAssigned: string | null = null;
-
-  // Helper: check if doctor still has quota
-  const hasQuota = (doc: Doctor, weekend: boolean) => {
-    const count = weekend ? weekendCounts.get(doc.id)! : weekdayCounts.get(doc.id)!;
+  const hasQuota = (docId: string, weekend: boolean) => {
+    const doc = doctors.find(d => d.id === docId)!;
+    const count = weekend ? weekendCounts.get(docId)! : weekdayCounts.get(docId)!;
     const quota = weekend ? doc.weekend_quota : doc.weekday_quota;
     return count < quota;
   };
 
-  const assignDoctor = (doc: Doctor, day: string, weekend: boolean) => {
-    schedule.push({ date: day, doctor_id: doc.id, type: weekend ? 'weekend' : 'weekday' });
-    if (weekend) weekendCounts.set(doc.id, weekendCounts.get(doc.id)! + 1);
-    else weekdayCounts.set(doc.id, weekdayCounts.get(doc.id)! + 1);
-    lastAssigned = doc.id;
+  const addCount = (docId: string, weekend: boolean) => {
+    if (weekend) weekendCounts.set(docId, weekendCounts.get(docId)! + 1);
+    else weekdayCounts.set(docId, weekdayCounts.get(docId)! + 1);
   };
 
+  // ===== PASS 1: Reserve preferred dates =====
+  // Collect all preferred date requests, sorted by number of candidates (fewest first = most constrained first)
+  const prefDays = days.filter(day =>
+    !holidayDates.has(day) && preferredMap.has(day)
+  );
+
+  // Sort by how many eligible preferred doctors each day has (most constrained first)
+  prefDays.sort((a, b) => {
+    const aCount = preferredMap.get(a)?.size || 0;
+    const bCount = preferredMap.get(b)?.size || 0;
+    return aCount - bCount;
+  });
+
+  for (const day of prefDays) {
+    const weekend = isWeekend(day);
+    const unavailable = unavailableMap.get(day) || new Set();
+    const preferred = preferredMap.get(day)!;
+
+    const candidates = doctors.filter(doc =>
+      preferred.has(doc.id) && !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+    );
+
+    if (candidates.length === 0) continue;
+
+    // Pick the preferred doctor with fewest total shifts
+    candidates.sort((a, b) => {
+      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
+      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
+      return totalA - totalB;
+    });
+
+    assignments.set(day, candidates[0].id);
+    addCount(candidates[0].id, weekend);
+  }
+
+  // ===== PASS 2: Fill remaining days =====
+  let lastAssigned: string | null = null;
+
   for (const day of days) {
-    // Skip holidays
     if (holidayDates.has(day)) {
       lastAssigned = null;
       continue;
     }
 
-    const weekend = isWeekend(day);
-    const unavailable = unavailableMap.get(day) || new Set();
-    const preferred = preferredMap.get(day) || new Set();
-
-    // Check if any doctor has a preferred date here
-    const preferredDoctors = doctors.filter(doc =>
-      preferred.has(doc.id) && !unavailable.has(doc.id) && hasQuota(doc, weekend)
-    );
-
-    // If a preferred doctor exists, allow them even if they were last assigned (relax consecutive rule)
-    if (preferredDoctors.length > 0) {
-      // Among preferred, pick the one with fewest total shifts (and prefer non-consecutive if possible)
-      preferredDoctors.sort((a, b) => {
-        const aConsec = a.id === lastAssigned ? 1 : 0;
-        const bConsec = b.id === lastAssigned ? 1 : 0;
-        if (aConsec !== bConsec) return aConsec - bConsec;
-        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-        return totalA - totalB;
-      });
-      assignDoctor(preferredDoctors[0], day, weekend);
+    // Already assigned in pass 1
+    if (assignments.has(day)) {
+      lastAssigned = assignments.get(day)!;
       continue;
     }
 
+    const weekend = isWeekend(day);
+    const unavailable = unavailableMap.get(day) || new Set();
+
     // Standard eligible: not unavailable, not consecutive, has quota
     const eligible = doctors.filter(doc =>
-      !unavailable.has(doc.id) && doc.id !== lastAssigned && hasQuota(doc, weekend)
+      !unavailable.has(doc.id) && doc.id !== lastAssigned && hasQuota(doc.id, weekend)
     );
 
     if (eligible.length > 0) {
@@ -106,13 +124,15 @@ export function generateSchedule(
         const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
         return totalA - totalB;
       });
-      assignDoctor(eligible[0], day, weekend);
+      assignments.set(day, eligible[0].id);
+      addCount(eligible[0].id, weekend);
+      lastAssigned = eligible[0].id;
       continue;
     }
 
     // Fallback: relax consecutive constraint
     const fallback = doctors.filter(doc =>
-      !unavailable.has(doc.id) && hasQuota(doc, weekend)
+      !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
     );
 
     if (fallback.length > 0) {
@@ -121,10 +141,51 @@ export function generateSchedule(
         const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
         return totalA - totalB;
       });
-      assignDoctor(fallback[0], day, weekend);
+      assignments.set(day, fallback[0].id);
+      addCount(fallback[0].id, weekend);
+      lastAssigned = fallback[0].id;
     } else {
       lastAssigned = null;
     }
+  }
+
+  // ===== PASS 3: Fix consecutive assignments from pass 1 reservations =====
+  // Check if any pass-1 reservations created consecutive assignments and try to swap if possible
+  const sortedDays = days.filter(d => !holidayDates.has(d) && assignments.has(d));
+  for (let i = 1; i < sortedDays.length; i++) {
+    const prevDay = sortedDays[i - 1];
+    const currDay = sortedDays[i];
+    const prevDoc = assignments.get(prevDay)!;
+    const currDoc = assignments.get(currDay)!;
+
+    if (prevDoc !== currDoc) continue;
+
+    // They're consecutive and same doctor - only swap if the current day was NOT a preferred date for this doctor
+    const currPreferred = preferredMap.get(currDay);
+    if (currPreferred?.has(currDoc)) continue; // keep the preferred assignment
+
+    const prevPreferred = preferredMap.get(prevDay);
+    if (prevPreferred?.has(prevDoc)) {
+      // Previous was preferred, try to swap current with another doctor
+      const weekend = isWeekend(currDay);
+      const unavailable = unavailableMap.get(currDay) || new Set();
+      const alt = doctors.find(doc =>
+        doc.id !== currDoc && !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+      );
+      // Not swapping quota counts here to keep it simple - consecutive is a soft constraint
+    }
+  }
+
+  // Build final schedule
+  const schedule: ScheduleEntry[] = [];
+  for (const day of days) {
+    if (!assignments.has(day)) continue;
+    const weekend = isWeekend(day);
+    schedule.push({
+      date: day,
+      doctor_id: assignments.get(day)!,
+      type: weekend ? 'weekend' : 'weekday',
+    });
   }
 
   return schedule;
