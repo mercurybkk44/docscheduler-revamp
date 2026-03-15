@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { CalendarOff, X, Star } from 'lucide-react';
+import { CalendarOff, X, Star, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
@@ -95,6 +95,29 @@ export default function UnavailablePage() {
   const doctorUnavailDates = unavailable.filter(u => u.doctor_id === selectedDoctorId).sort((a, b) => a.date.localeCompare(b.date));
   const doctorPrefDates = preferred.filter(p => p.doctor_id === selectedDoctorId).sort((a, b) => a.date.localeCompare(b.date));
 
+  // Count weekdays and weekend days in next month
+  const totalWeekdays = useMemo(() => {
+    let count = 0;
+    const d = new Date(nextMonthStart);
+    while (d <= nextMonthEnd) {
+      const day = d.getDay();
+      if (day !== 0 && day !== 6) count++;
+      d.setDate(d.getDate() + 1);
+    }
+    return count;
+  }, [nextMonthStart, nextMonthEnd]);
+
+  const totalWeekendDays = useMemo(() => {
+    let count = 0;
+    const d = new Date(nextMonthStart);
+    while (d <= nextMonthEnd) {
+      const day = d.getDay();
+      if (day === 0 || day === 6) count++;
+      d.setDate(d.getDate() + 1);
+    }
+    return count;
+  }, [nextMonthStart, nextMonthEnd]);
+
   // Restrict calendar to only next month
   const disabledDays = (date: Date) => date < nextMonthStart || date > nextMonthEnd;
 
@@ -140,6 +163,28 @@ export default function UnavailablePage() {
           </Select>
         </CardContent>
       </Card>
+
+      {selectedDoctor && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
+              <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-foreground">
+                  {selectedDoctor.name} — Shift Quota Summary
+                </p>
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+                  <span>Weekday shifts: <strong className="text-foreground">{selectedDoctor.weekday_quota}</strong> <span className="text-xs">/ {totalWeekdays} weekdays</span></span>
+                  <span>Weekend shifts: <strong className="text-foreground">{selectedDoctor.weekend_quota}</strong> <span className="text-xs">/ {totalWeekendDays} weekend days</span></span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Mark dates this doctor <span className="font-medium text-destructive">cannot</span> work as unavailable, and dates they <span className="font-medium text-yellow-600">prefer</span> to work as preferred.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {selectedDoctor && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
