@@ -19,8 +19,8 @@ export function generateSchedule(
   year: number,
   month: number,
   doctors: Doctor[],
-  unavailableDates: UnavailableDate[],
-  preferredDates: PreferredDate[],
+  unavailableDates: { doctor_id: string; date: string }[],
+  preferredDates: { doctor_id: string; date: string }[],
   holidayDates: Set<string>
 ): ScheduleEntry[] {
   if (doctors.length === 0) return [];
