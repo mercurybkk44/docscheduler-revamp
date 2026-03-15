@@ -1,8 +1,8 @@
 import { Doctor, ScheduleEntry } from './types';
 
-function isWeekend(dateStr: string): boolean {
+function isWeekendOrHoliday(dateStr: string, holidayDates: Set<string>): boolean {
   const d = new Date(dateStr + 'T00:00:00');
-  return d.getDay() === 0 || d.getDay() === 6;
+  return d.getDay() === 0 || d.getDay() === 6 || holidayDates.has(dateStr);
 }
 
 function getDaysInMonth(year: number, month: number): string[] {
@@ -61,12 +61,8 @@ export function generateSchedule(
   };
 
   // ===== PASS 1: Reserve preferred dates =====
-  // Collect all preferred date requests, sorted by number of candidates (fewest first = most constrained first)
-  const prefDays = days.filter(day =>
-    !holidayDates.has(day) && preferredMap.has(day)
-  );
+  const prefDays = days.filter(day => preferredMap.has(day));
 
-  // Sort by how many eligible preferred doctors each day has (most constrained first)
   prefDays.sort((a, b) => {
     const aCount = preferredMap.get(a)?.size || 0;
     const bCount = preferredMap.get(b)?.size || 0;
@@ -74,7 +70,7 @@ export function generateSchedule(
   });
 
   for (const day of prefDays) {
-    const weekend = isWeekend(day);
+    const weekend = isWeekendOrHoliday(day, holidayDates);
     const unavailable = unavailableMap.get(day) || new Set();
     const preferred = preferredMap.get(day)!;
 
@@ -84,7 +80,6 @@ export function generateSchedule(
 
     if (candidates.length === 0) continue;
 
-    // Pick the preferred doctor with fewest total shifts
     candidates.sort((a, b) => {
       const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
       const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
@@ -99,21 +94,15 @@ export function generateSchedule(
   let lastAssigned: string | null = null;
 
   for (const day of days) {
-    if (holidayDates.has(day)) {
-      lastAssigned = null;
-      continue;
-    }
-
     // Already assigned in pass 1
     if (assignments.has(day)) {
       lastAssigned = assignments.get(day)!;
       continue;
     }
 
-    const weekend = isWeekend(day);
+    const weekend = isWeekendOrHoliday(day, holidayDates);
     const unavailable = unavailableMap.get(day) || new Set();
 
-    // Standard eligible: not unavailable, not consecutive, has quota
     const eligible = doctors.filter(doc =>
       !unavailable.has(doc.id) && doc.id !== lastAssigned && hasQuota(doc.id, weekend)
     );
@@ -149,9 +138,8 @@ export function generateSchedule(
     }
   }
 
-  // ===== PASS 3: Fix consecutive assignments from pass 1 reservations =====
-  // Check if any pass-1 reservations created consecutive assignments and try to swap if possible
-  const sortedDays = days.filter(d => !holidayDates.has(d) && assignments.has(d));
+  // ===== PASS 3: Fix consecutive assignments =====
+  const sortedDays = days.filter(d => assignments.has(d));
   for (let i = 1; i < sortedDays.length; i++) {
     const prevDay = sortedDays[i - 1];
     const currDay = sortedDays[i];
@@ -160,19 +148,16 @@ export function generateSchedule(
 
     if (prevDoc !== currDoc) continue;
 
-    // They're consecutive and same doctor - only swap if the current day was NOT a preferred date for this doctor
     const currPreferred = preferredMap.get(currDay);
-    if (currPreferred?.has(currDoc)) continue; // keep the preferred assignment
+    if (currPreferred?.has(currDoc)) continue;
 
     const prevPreferred = preferredMap.get(prevDay);
     if (prevPreferred?.has(prevDoc)) {
-      // Previous was preferred, try to swap current with another doctor
-      const weekend = isWeekend(currDay);
+      const weekend = isWeekendOrHoliday(currDay, holidayDates);
       const unavailable = unavailableMap.get(currDay) || new Set();
       const alt = doctors.find(doc =>
         doc.id !== currDoc && !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
       );
-      // Not swapping quota counts here to keep it simple - consecutive is a soft constraint
     }
   }
 
@@ -180,7 +165,7 @@ export function generateSchedule(
   const schedule: ScheduleEntry[] = [];
   for (const day of days) {
     if (!assignments.has(day)) continue;
-    const weekend = isWeekend(day);
+    const weekend = isWeekendOrHoliday(day, holidayDates);
     schedule.push({
       date: day,
       doctor_id: assignments.get(day)!,
