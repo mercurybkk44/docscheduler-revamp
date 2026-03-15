@@ -1,4 +1,4 @@
-import { Doctor, UnavailableDate, PreferredDate, ScheduleEntry } from './types';
+import { Doctor, ScheduleEntry } from './types';
 
 function isWeekend(dateStr: string): boolean {
   const d = new Date(dateStr + 'T00:00:00');
