@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { CalendarOff, X, Star } from 'lucide-react';
+import { CalendarOff, X, Star, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
