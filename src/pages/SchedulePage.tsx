@@ -249,8 +249,8 @@ export default function SchedulePage() {
       {doctors.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-base">Schedule Summary — {monthLabel}</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
+          <CardContent className="overflow-x-auto">
+            <Table className="min-w-[600px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Doctor</TableHead>
