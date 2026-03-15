@@ -12,9 +12,6 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { Doctor, ScheduleEntry, DOCTOR_COLORS, DOCTOR_BG_COLORS } from '@/lib/types';
 import {
   loadDoctors, loadUnavailableDates, loadPreferredDates, loadHolidays,
-  loadSchedule, saveScheduleEntries, updateScheduleEntry, deleteScheduleEntry, clearSchedule
-import {
-  loadDoctors, loadUnavailableDates, loadPreferredDates, loadHolidays,
   loadSchedule, saveScheduleEntries, updateScheduleEntry, deleteScheduleEntry, clearAllData
 } from '@/lib/store';
 import { generateSchedule } from '@/lib/scheduler';
