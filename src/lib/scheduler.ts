@@ -181,9 +181,17 @@ export function generateSchedule(
     const weekend = isWeekendOrHoliday(day, holidayDates);
     const unavailable = unavailableMap.get(day) || new Set();
 
-    const withQuota = doctors.filter(doc =>
+    let withQuota = doctors.filter(doc =>
       !unavailable.has(doc.id) && hasQuota(doc.id, weekend) && canDoFriday(doc.id, day)
     );
+
+    // Relax Friday constraint if no candidates
+    if (withQuota.length === 0 && isFriday(day)) {
+      withQuota = doctors.filter(doc =>
+        !unavailable.has(doc.id) && hasQuota(doc.id, weekend)
+      );
+    }
+
     if (withQuota.length === 0) continue;
 
     sortByQuotaRoom(withQuota, weekend);
