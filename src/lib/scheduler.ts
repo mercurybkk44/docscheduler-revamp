@@ -53,6 +53,19 @@ export function generateSchedule(
     weekendCounts.set(doc.id, 0);
   }
 
+  // Friday constraint: count Fridays in month and set max per doctor
+  const totalFridays = days.filter(d => isFriday(d)).length;
+  const maxFridayPerDoctor = totalFridays <= 4 ? 1 : 2;
+  const fridayCounts = new Map<string, number>();
+  for (const doc of doctors) {
+    fridayCounts.set(doc.id, 0);
+  }
+
+  const canDoFriday = (docId: string, dateStr: string): boolean => {
+    if (!isFriday(dateStr)) return true;
+    return fridayCounts.get(docId)! < maxFridayPerDoctor;
+  };
+
   const hasQuota = (docId: string, weekend: boolean) => {
     const doc = doctors.find(d => d.id === docId)!;
     const count = weekend ? weekendCounts.get(docId)! : weekdayCounts.get(docId)!;
@@ -60,9 +73,10 @@ export function generateSchedule(
     return count < quota;
   };
 
-  const addCount = (docId: string, weekend: boolean) => {
+  const addCount = (docId: string, weekend: boolean, dateStr: string) => {
     if (weekend) weekendCounts.set(docId, weekendCounts.get(docId)! + 1);
     else weekdayCounts.set(docId, weekdayCounts.get(docId)! + 1);
+    if (isFriday(dateStr)) fridayCounts.set(docId, fridayCounts.get(docId)! + 1);
   };
 
   // Helper: sort doctors by type-specific quota room (most room first), then lowest total
