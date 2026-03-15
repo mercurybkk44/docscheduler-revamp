@@ -143,6 +143,18 @@ export default function SchedulePage() {
               <CalendarDays className="h-4 w-4" />
               Generate Schedule
             </Button>
+            {schedule.length > 0 && (
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setSchedule([]);
+                  saveSchedule([]);
+                  toast.success('Schedule cleared');
+                }}
+              >
+                Reset
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
