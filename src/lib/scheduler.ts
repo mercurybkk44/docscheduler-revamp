@@ -134,7 +134,30 @@ export function generateSchedule(
       addCount(fallback[0].id, weekend);
       lastAssigned = fallback[0].id;
     } else {
+      // No doctor with quota available — will be handled in pass 4
       lastAssigned = null;
+    }
+  }
+
+  // ===== PASS 2.5: Force-fill unassigned days (quota exceeded) =====
+  for (const day of days) {
+    if (assignments.has(day)) continue;
+
+    const weekend = isWeekendOrHoliday(day, holidayDates);
+    const unavailable = unavailableMap.get(day) || new Set();
+
+    // Pick the doctor with the lowest total shifts, ignoring quota
+    const candidates = doctors
+      .filter(doc => !unavailable.has(doc.id))
+      .sort((a, b) => {
+        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
+        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
+        return totalA - totalB;
+      });
+
+    if (candidates.length > 0) {
+      assignments.set(day, candidates[0].id);
+      addCount(candidates[0].id, weekend);
     }
   }
 
