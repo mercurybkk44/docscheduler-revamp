@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { useState, useEffect, useMemo } from 'react';
+import { format, endOfMonth } from 'date-fns';
 import { PartyPopper, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
@@ -7,11 +7,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Holiday } from '@/lib/types';
 import { loadHolidays, addHoliday, deleteHoliday } from '@/lib/store';
+import { getNextMonth, getNextMonthLabel } from '@/lib/nextMonth';
 import { toast } from 'sonner';
 
 export default function HolidaysPage() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const { month, year } = getNextMonth();
+  const monthLabel = getNextMonthLabel();
+  const nextMonthStart = useMemo(() => new Date(year, month, 1), [month, year]);
+  const nextMonthEnd = useMemo(() => endOfMonth(nextMonthStart), [nextMonthStart]);
 
   const fetchHolidays = async () => {
     try {
@@ -32,18 +38,12 @@ export default function HolidaysPage() {
     const newDateStrs = new Set(dates.map(d => format(d, 'yyyy-MM-dd')));
     const existingDateStrs = new Set(holidays.map(h => h.date));
 
-    // Add new dates
     for (const ds of newDateStrs) {
       if (!existingDateStrs.has(ds)) {
-        try {
-          await addHoliday(ds);
-        } catch (e) {
-          // duplicate, skip
-        }
+        try { await addHoliday(ds); } catch (e) { /* duplicate */ }
       }
     }
 
-    // Remove deselected dates
     for (const h of holidays) {
       if (!newDateStrs.has(h.date)) {
         await deleteHoliday(h.id);
@@ -63,6 +63,8 @@ export default function HolidaysPage() {
     }
   };
 
+  const disabledDays = (date: Date) => date < nextMonthStart || date > nextMonthEnd;
+
   if (loading) return <div className="text-center py-16 text-muted-foreground">Loading...</div>;
 
   return (
@@ -70,16 +72,23 @@ export default function HolidaysPage() {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <PartyPopper className="h-6 w-6 text-primary" />
-          Holidays
+          Holidays — {monthLabel}
         </h1>
-        <p className="text-muted-foreground mt-1">Configure public holidays. No doctors will be scheduled on these dates.</p>
+        <p className="text-muted-foreground mt-1">Configure public holidays for next month. No doctors will be scheduled on these dates.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader><CardTitle className="text-base">Select Holiday Dates</CardTitle></CardHeader>
           <CardContent className="flex justify-center">
-            <Calendar mode="multiple" selected={selectedDates} onSelect={handleSelect} className="pointer-events-auto" />
+            <Calendar
+              mode="multiple"
+              selected={selectedDates}
+              onSelect={handleSelect}
+              defaultMonth={nextMonthStart}
+              disabled={disabledDays}
+              className="pointer-events-auto"
+            />
           </CardContent>
         </Card>
 
