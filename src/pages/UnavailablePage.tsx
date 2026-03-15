@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { useState, useEffect, useMemo } from 'react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { CalendarOff, X, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Doctor, DOCTOR_COLORS } from '@/lib/types';
 import { loadDoctors, loadUnavailableDates, setUnavailableDates, loadPreferredDates, setPreferredDates } from '@/lib/store';
+import { getNextMonth, getNextMonthLabel } from '@/lib/nextMonth';
 import { toast } from 'sonner';
 
 export default function UnavailablePage() {
@@ -17,6 +17,11 @@ export default function UnavailablePage() {
   const [preferred, setPreferred] = useState<{ doctor_id: string; date: string }[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
   const [loading, setLoading] = useState(true);
+
+  const { month, year } = getNextMonth();
+  const monthLabel = getNextMonthLabel();
+  const nextMonthStart = useMemo(() => new Date(year, month, 1), [month, year]);
+  const nextMonthEnd = useMemo(() => endOfMonth(nextMonthStart), [nextMonthStart]);
 
   useEffect(() => {
     const load = async () => {
@@ -90,6 +95,9 @@ export default function UnavailablePage() {
   const doctorUnavailDates = unavailable.filter(u => u.doctor_id === selectedDoctorId).sort((a, b) => a.date.localeCompare(b.date));
   const doctorPrefDates = preferred.filter(p => p.doctor_id === selectedDoctorId).sort((a, b) => a.date.localeCompare(b.date));
 
+  // Restrict calendar to only next month
+  const disabledDays = (date: Date) => date < nextMonthStart || date > nextMonthEnd;
+
   if (loading) return <div className="text-center py-16 text-muted-foreground">Loading...</div>;
 
   if (doctors.length === 0) {
@@ -103,13 +111,13 @@ export default function UnavailablePage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <CalendarOff className="h-6 w-6 text-primary" />
-          Doctor Availability
+          Doctor Availability — {monthLabel}
         </h1>
-        <p className="text-muted-foreground mt-1">Set unavailable and preferred dates for each doctor.</p>
+        <p className="text-muted-foreground mt-1">Set unavailable and preferred dates for each doctor for next month.</p>
       </div>
 
       <Card>
@@ -134,73 +142,90 @@ export default function UnavailablePage() {
       </Card>
 
       {selectedDoctor && (
-        <Tabs defaultValue="unavailable" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="unavailable" className="gap-2"><CalendarOff className="h-4 w-4" />Unavailable Dates</TabsTrigger>
-            <TabsTrigger value="preferred" className="gap-2"><Star className="h-4 w-4" />Preferred Dates</TabsTrigger>
-          </TabsList>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Unavailable Dates Panel */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CalendarOff className="h-4 w-4 text-destructive" />
+                Unavailable Dates
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-center">
+                <Calendar
+                  mode="multiple"
+                  selected={unavailDates}
+                  onSelect={handleUnavailSelect}
+                  defaultMonth={nextMonthStart}
+                  disabled={disabledDays}
+                  className="pointer-events-auto"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-2 text-muted-foreground">
+                  Selected ({doctorUnavailDates.length})
+                </p>
+                {doctorUnavailDates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No unavailable dates set.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {doctorUnavailDates.map(ud => (
+                      <Badge key={ud.date} variant="secondary" className="gap-1 pr-1">
+                        {format(new Date(ud.date + 'T00:00:00'), 'MMM d')}
+                        <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => removeUnavailDate(ud.date)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-          <TabsContent value="unavailable">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader><CardTitle className="text-base">Pick Unavailable Dates</CardTitle></CardHeader>
-                <CardContent className="flex justify-center">
-                  <Calendar mode="multiple" selected={unavailDates} onSelect={handleUnavailSelect} className="pointer-events-auto" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle className="text-base">Unavailable Dates ({doctorUnavailDates.length})</CardTitle></CardHeader>
-                <CardContent>
-                  {doctorUnavailDates.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No unavailable dates set.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {doctorUnavailDates.map(ud => (
-                        <Badge key={ud.date} variant="secondary" className="gap-1 pr-1">
-                          {format(new Date(ud.date + 'T00:00:00'), 'MMM d, yyyy')}
-                          <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => removeUnavailDate(ud.date)}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="preferred">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader><CardTitle className="text-base">Pick Preferred Dates</CardTitle></CardHeader>
-                <CardContent className="flex justify-center">
-                  <Calendar mode="multiple" selected={prefDates} onSelect={handlePrefSelect} className="pointer-events-auto" />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader><CardTitle className="text-base">Preferred Dates ({doctorPrefDates.length})</CardTitle></CardHeader>
-                <CardContent>
-                  {doctorPrefDates.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No preferred dates set.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {doctorPrefDates.map(pd => (
-                        <Badge key={pd.date} variant="secondary" className="gap-1 pr-1">
-                          <Star className="h-3 w-3 text-yellow-500" />
-                          {format(new Date(pd.date + 'T00:00:00'), 'MMM d, yyyy')}
-                          <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => removePrefDate(pd.date)}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
+          {/* Preferred Dates Panel */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Star className="h-4 w-4 text-yellow-500" />
+                Preferred Shift Dates
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-center">
+                <Calendar
+                  mode="multiple"
+                  selected={prefDates}
+                  onSelect={handlePrefSelect}
+                  defaultMonth={nextMonthStart}
+                  disabled={disabledDays}
+                  className="pointer-events-auto"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-2 text-muted-foreground">
+                  Selected ({doctorPrefDates.length})
+                </p>
+                {doctorPrefDates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No preferred dates set.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {doctorPrefDates.map(pd => (
+                      <Badge key={pd.date} variant="secondary" className="gap-1 pr-1">
+                        <Star className="h-3 w-3 text-yellow-500" />
+                        {format(new Date(pd.date + 'T00:00:00'), 'MMM d')}
+                        <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => removePrefDate(pd.date)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

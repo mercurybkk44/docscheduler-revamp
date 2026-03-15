@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { CalendarDays } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -16,12 +15,8 @@ import {
   loadSchedule, saveScheduleEntries, updateScheduleEntry, deleteScheduleEntry, clearSchedule
 } from '@/lib/store';
 import { generateSchedule } from '@/lib/scheduler';
+import { getNextMonth, getNextMonthLabel, getNextMonthPrefix } from '@/lib/nextMonth';
 import { toast } from 'sonner';
-
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 
 function isWeekend(dateStr: string): boolean {
   const d = new Date(dateStr + 'T00:00:00');
@@ -34,11 +29,14 @@ export default function SchedulePage() {
   const [unavailable, setUnavailable] = useState<{ doctor_id: string; date: string }[]>([]);
   const [preferred, setPreferred] = useState<{ doctor_id: string; date: string }[]>([]);
   const [holidays, setHolidays] = useState<{ date: string }[]>([]);
-  const [month, setMonth] = useState(new Date().getMonth());
-  const [year, setYear] = useState(new Date().getFullYear());
   const [editDate, setEditDate] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const { month, year } = getNextMonth();
+  const monthLabel = getNextMonthLabel();
+  const monthStr = getNextMonthPrefix();
+  const calendarDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
 
   const fetchAll = async () => {
     try {
@@ -63,13 +61,11 @@ export default function SchedulePage() {
     if (doctors.length === 0) { toast.error('Add doctors first'); return; }
     const holidaySet = new Set(holidays.map(h => h.date));
     const newSchedule = generateSchedule(year, month, doctors, unavailable, preferred, holidaySet);
-    const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
     try {
       await saveScheduleEntries(newSchedule, monthStr);
-      // Reload to get IDs
       const sched = await loadSchedule();
       setSchedule(sched);
-      toast.success(`Schedule generated for ${MONTHS[month]} ${year}`);
+      toast.success(`Schedule generated for ${monthLabel}`);
     } catch (e) {
       toast.error('Failed to save schedule');
     }
@@ -95,7 +91,6 @@ export default function SchedulePage() {
 
   const calendarEvents = useMemo(() => {
     const events: any[] = [];
-    // Doctor assignments
     for (const entry of schedule) {
       const doc = doctorMap.get(entry.doctor_id);
       events.push({
@@ -108,7 +103,6 @@ export default function SchedulePage() {
         borderColor: 'transparent',
       });
     }
-    // Holidays
     for (const h of holidays) {
       events.push({
         id: 'hol-' + h.date,
@@ -121,7 +115,6 @@ export default function SchedulePage() {
         display: 'background',
         classNames: ['holiday-event'],
       });
-      // Also add a foreground event for text
       events.push({
         id: 'hol-text-' + h.date,
         title: '🎉 HOLIDAY',
@@ -173,13 +166,9 @@ export default function SchedulePage() {
   };
 
   const currentAssignment = editDate ? schedule.find(s => s.date === editDate) : null;
-  const calendarDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i);
 
   // Summary data
-  const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
   const monthSchedule = schedule.filter(s => s.date.startsWith(monthStr));
-
   const summaryData = doctors.map(doc => {
     const docUnavail = unavailable.filter(u => u.doctor_id === doc.id && u.date.startsWith(monthStr));
     const docPref = preferred.filter(p => p.doctor_id === doc.id && p.date.startsWith(monthStr));
@@ -205,29 +194,14 @@ export default function SchedulePage() {
           <CalendarDays className="h-6 w-6 text-primary" />
           Schedule Generator
         </h1>
-        <p className="text-muted-foreground mt-1">Generate and view the monthly doctor schedule.</p>
+        <p className="text-muted-foreground mt-1">Generate the on-call schedule for <strong>{monthLabel}</strong>.</p>
       </div>
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Month</label>
-              <Select value={String(month)} onValueChange={v => setMonth(Number(v))}>
-                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((m, i) => (<SelectItem key={i} value={String(i)}>{m}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Year</label>
-              <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
-                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {years.map(y => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}
-                </SelectContent>
-              </Select>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="text-sm font-medium px-4 py-2 rounded-md bg-secondary text-secondary-foreground">
+              Scheduling for: <strong>{monthLabel}</strong>
             </div>
             <Button onClick={handleGenerate} className="gap-2">
               <CalendarDays className="h-4 w-4" />
@@ -271,7 +245,7 @@ export default function SchedulePage() {
       {/* Summary Panel */}
       {doctors.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-base">Schedule Summary — {MONTHS[month]} {year}</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Schedule Summary — {monthLabel}</CardTitle></CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
