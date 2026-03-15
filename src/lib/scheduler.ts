@@ -1,4 +1,4 @@
-import { Doctor, UnavailableDate, ScheduleEntry } from './types';
+import { Doctor, ScheduleEntry } from './types';
 
 function isWeekend(dateStr: string): boolean {
   const d = new Date(dateStr + 'T00:00:00');
@@ -19,24 +19,30 @@ export function generateSchedule(
   year: number,
   month: number,
   doctors: Doctor[],
-  unavailableDates: UnavailableDate[]
+  unavailableDates: { doctor_id: string; date: string }[],
+  preferredDates: { doctor_id: string; date: string }[],
+  holidayDates: Set<string>
 ): ScheduleEntry[] {
   if (doctors.length === 0) return [];
 
   const days = getDaysInMonth(year, month);
   const unavailableMap = new Map<string, Set<string>>();
-  
+  const preferredMap = new Map<string, Set<string>>();
+
   for (const ud of unavailableDates) {
-    if (!unavailableMap.has(ud.date)) {
-      unavailableMap.set(ud.date, new Set());
-    }
-    unavailableMap.get(ud.date)!.add(ud.doctorId);
+    if (!unavailableMap.has(ud.date)) unavailableMap.set(ud.date, new Set());
+    unavailableMap.get(ud.date)!.add(ud.doctor_id);
+  }
+
+  for (const pd of preferredDates) {
+    if (!preferredMap.has(pd.date)) preferredMap.set(pd.date, new Set());
+    preferredMap.get(pd.date)!.add(pd.doctor_id);
   }
 
   const schedule: ScheduleEntry[] = [];
   const weekdayCounts = new Map<string, number>();
   const weekendCounts = new Map<string, number>();
-  
+
   for (const doc of doctors) {
     weekdayCounts.set(doc.id, 0);
     weekendCounts.set(doc.id, 0);
@@ -45,15 +51,22 @@ export function generateSchedule(
   let lastAssigned: string | null = null;
 
   for (const day of days) {
+    // Skip holidays
+    if (holidayDates.has(day)) {
+      lastAssigned = null;
+      continue;
+    }
+
     const weekend = isWeekend(day);
     const unavailable = unavailableMap.get(day) || new Set();
+    const preferred = preferredMap.get(day) || new Set();
 
     // Get eligible doctors
     const eligible = doctors.filter(doc => {
       if (unavailable.has(doc.id)) return false;
       if (doc.id === lastAssigned) return false;
       const count = weekend ? weekendCounts.get(doc.id)! : weekdayCounts.get(doc.id)!;
-      const quota = weekend ? doc.weekendQuota : doc.weekdayQuota;
+      const quota = weekend ? doc.weekend_quota : doc.weekday_quota;
       if (count >= quota) return false;
       return true;
     });
@@ -63,7 +76,7 @@ export function generateSchedule(
       const fallback = doctors.filter(doc => {
         if (unavailable.has(doc.id)) return false;
         const count = weekend ? weekendCounts.get(doc.id)! : weekdayCounts.get(doc.id)!;
-        const quota = weekend ? doc.weekendQuota : doc.weekdayQuota;
+        const quota = weekend ? doc.weekend_quota : doc.weekday_quota;
         return count < quota;
       });
 
@@ -72,7 +85,6 @@ export function generateSchedule(
         continue;
       }
 
-      // Pick doctor with fewest total shifts
       fallback.sort((a, b) => {
         const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
         const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
@@ -80,22 +92,25 @@ export function generateSchedule(
       });
 
       const chosen = fallback[0];
-      schedule.push({ date: day, doctorId: chosen.id });
+      schedule.push({ date: day, doctor_id: chosen.id, type: weekend ? 'weekend' : 'weekday' });
       if (weekend) weekendCounts.set(chosen.id, weekendCounts.get(chosen.id)! + 1);
       else weekdayCounts.set(chosen.id, weekdayCounts.get(chosen.id)! + 1);
       lastAssigned = chosen.id;
       continue;
     }
 
-    // Pick doctor with fewest total shifts for balance
+    // Priority: preferred doctors first, then by fewest total shifts
     eligible.sort((a, b) => {
+      const aPref = preferred.has(a.id) ? 0 : 1;
+      const bPref = preferred.has(b.id) ? 0 : 1;
+      if (aPref !== bPref) return aPref - bPref;
       const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
       const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
       return totalA - totalB;
     });
 
     const chosen = eligible[0];
-    schedule.push({ date: day, doctorId: chosen.id });
+    schedule.push({ date: day, doctor_id: chosen.id, type: weekend ? 'weekend' : 'weekday' });
     if (weekend) weekendCounts.set(chosen.id, weekendCounts.get(chosen.id)! + 1);
     else weekdayCounts.set(chosen.id, weekdayCounts.get(chosen.id)! + 1);
     lastAssigned = chosen.id;

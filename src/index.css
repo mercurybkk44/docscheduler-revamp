@@ -107,6 +107,11 @@
   font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
 
+.fc .fc-daygrid-day.fc-day-holiday,
+.holiday-event {
+  background: hsl(0, 72%, 95%) !important;
+}
+
 .fc .fc-col-header-cell {
   background: hsl(var(--muted));
   padding: 0.5rem 0;
