@@ -12,7 +12,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { Doctor, ScheduleEntry, DOCTOR_COLORS, DOCTOR_BG_COLORS } from '@/lib/types';
 import {
   loadDoctors, loadUnavailableDates, loadPreferredDates, loadHolidays,
-  loadSchedule, saveScheduleEntries, updateScheduleEntry, deleteScheduleEntry, clearSchedule
+  loadSchedule, saveScheduleEntries, updateScheduleEntry, deleteScheduleEntry, clearAllData
 } from '@/lib/store';
 import { generateSchedule } from '@/lib/scheduler';
 import { getNextMonth, getNextMonthLabel, getNextMonthPrefix } from '@/lib/nextMonth';
@@ -73,11 +73,14 @@ export default function SchedulePage() {
 
   const handleReset = async () => {
     try {
-      await clearSchedule();
+      await clearAllData();
       setSchedule([]);
-      toast.success('Schedule cleared');
+      setUnavailable([]);
+      setPreferred([]);
+      setHolidays([]);
+      toast.success('All data cleared (schedule, availability, holidays)');
     } catch (e) {
-      toast.error('Failed to clear schedule');
+      toast.error('Failed to clear data');
     }
   };
 
