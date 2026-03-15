@@ -193,11 +193,11 @@ export default function SchedulePage() {
   return (
     <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" />
+        <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           Schedule Generator
         </h1>
-        <p className="text-muted-foreground mt-1">Generate the on-call schedule for <strong>{monthLabel}</strong>.</p>
+        <p className="text-sm sm:text-base text-muted-foreground mt-1">Generate the on-call schedule for <strong>{monthLabel}</strong>.</p>
       </div>
 
       <Card>
