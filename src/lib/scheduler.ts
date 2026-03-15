@@ -50,6 +50,20 @@ export function generateSchedule(
 
   let lastAssigned: string | null = null;
 
+  // Helper: check if doctor still has quota
+  const hasQuota = (doc: Doctor, weekend: boolean) => {
+    const count = weekend ? weekendCounts.get(doc.id)! : weekdayCounts.get(doc.id)!;
+    const quota = weekend ? doc.weekend_quota : doc.weekday_quota;
+    return count < quota;
+  };
+
+  const assignDoctor = (doc: Doctor, day: string, weekend: boolean) => {
+    schedule.push({ date: day, doctor_id: doc.id, type: weekend ? 'weekend' : 'weekday' });
+    if (weekend) weekendCounts.set(doc.id, weekendCounts.get(doc.id)! + 1);
+    else weekdayCounts.set(doc.id, weekdayCounts.get(doc.id)! + 1);
+    lastAssigned = doc.id;
+  };
+
   for (const day of days) {
     // Skip holidays
     if (holidayDates.has(day)) {
@@ -61,59 +75,56 @@ export function generateSchedule(
     const unavailable = unavailableMap.get(day) || new Set();
     const preferred = preferredMap.get(day) || new Set();
 
-    // Get eligible doctors
-    const eligible = doctors.filter(doc => {
-      if (unavailable.has(doc.id)) return false;
-      if (doc.id === lastAssigned) return false;
-      const count = weekend ? weekendCounts.get(doc.id)! : weekdayCounts.get(doc.id)!;
-      const quota = weekend ? doc.weekend_quota : doc.weekday_quota;
-      if (count >= quota) return false;
-      return true;
-    });
+    // Check if any doctor has a preferred date here
+    const preferredDoctors = doctors.filter(doc =>
+      preferred.has(doc.id) && !unavailable.has(doc.id) && hasQuota(doc, weekend)
+    );
 
-    if (eligible.length === 0) {
-      // Fallback: relax consecutive constraint
-      const fallback = doctors.filter(doc => {
-        if (unavailable.has(doc.id)) return false;
-        const count = weekend ? weekendCounts.get(doc.id)! : weekdayCounts.get(doc.id)!;
-        const quota = weekend ? doc.weekend_quota : doc.weekday_quota;
-        return count < quota;
+    // If a preferred doctor exists, allow them even if they were last assigned (relax consecutive rule)
+    if (preferredDoctors.length > 0) {
+      // Among preferred, pick the one with fewest total shifts (and prefer non-consecutive if possible)
+      preferredDoctors.sort((a, b) => {
+        const aConsec = a.id === lastAssigned ? 1 : 0;
+        const bConsec = b.id === lastAssigned ? 1 : 0;
+        if (aConsec !== bConsec) return aConsec - bConsec;
+        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
+        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
+        return totalA - totalB;
       });
+      assignDoctor(preferredDoctors[0], day, weekend);
+      continue;
+    }
 
-      if (fallback.length === 0) {
-        lastAssigned = null;
-        continue;
-      }
+    // Standard eligible: not unavailable, not consecutive, has quota
+    const eligible = doctors.filter(doc =>
+      !unavailable.has(doc.id) && doc.id !== lastAssigned && hasQuota(doc, weekend)
+    );
 
+    if (eligible.length > 0) {
+      eligible.sort((a, b) => {
+        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
+        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
+        return totalA - totalB;
+      });
+      assignDoctor(eligible[0], day, weekend);
+      continue;
+    }
+
+    // Fallback: relax consecutive constraint
+    const fallback = doctors.filter(doc =>
+      !unavailable.has(doc.id) && hasQuota(doc, weekend)
+    );
+
+    if (fallback.length > 0) {
       fallback.sort((a, b) => {
         const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
         const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
         return totalA - totalB;
       });
-
-      const chosen = fallback[0];
-      schedule.push({ date: day, doctor_id: chosen.id, type: weekend ? 'weekend' : 'weekday' });
-      if (weekend) weekendCounts.set(chosen.id, weekendCounts.get(chosen.id)! + 1);
-      else weekdayCounts.set(chosen.id, weekdayCounts.get(chosen.id)! + 1);
-      lastAssigned = chosen.id;
-      continue;
+      assignDoctor(fallback[0], day, weekend);
+    } else {
+      lastAssigned = null;
     }
-
-    // Priority: preferred doctors first, then by fewest total shifts
-    eligible.sort((a, b) => {
-      const aPref = preferred.has(a.id) ? 0 : 1;
-      const bPref = preferred.has(b.id) ? 0 : 1;
-      if (aPref !== bPref) return aPref - bPref;
-      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-      return totalA - totalB;
-    });
-
-    const chosen = eligible[0];
-    schedule.push({ date: day, doctor_id: chosen.id, type: weekend ? 'weekend' : 'weekday' });
-    if (weekend) weekendCounts.set(chosen.id, weekendCounts.get(chosen.id)! + 1);
-    else weekdayCounts.set(chosen.id, weekdayCounts.get(chosen.id)! + 1);
-    lastAssigned = chosen.id;
   }
 
   return schedule;
