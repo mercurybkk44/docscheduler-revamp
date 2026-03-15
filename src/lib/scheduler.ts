@@ -60,6 +60,22 @@ export function generateSchedule(
     else weekdayCounts.set(docId, weekdayCounts.get(docId)! + 1);
   };
 
+  // Helper: sort doctors by type-specific quota room (most room first), then lowest total
+  const sortByQuotaRoom = (list: Doctor[], weekend: boolean) => {
+    list.sort((a, b) => {
+      const roomA = weekend
+        ? a.weekend_quota - weekendCounts.get(a.id)!
+        : a.weekday_quota - weekdayCounts.get(a.id)!;
+      const roomB = weekend
+        ? b.weekend_quota - weekendCounts.get(b.id)!
+        : b.weekday_quota - weekdayCounts.get(b.id)!;
+      if (roomB !== roomA) return roomB - roomA;
+      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
+      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
+      return totalA - totalB;
+    });
+  };
+
   // ===== PASS 1: Reserve preferred dates =====
   const prefDays = days.filter(day => preferredMap.has(day));
 
@@ -81,34 +97,14 @@ export function generateSchedule(
     if (candidates.length === 0) continue;
 
     sortByQuotaRoom(candidates, weekend);
-
     assignments.set(day, candidates[0].id);
     addCount(candidates[0].id, weekend);
   }
-
-  // Helper: sort doctors by type-specific quota room (most room first), then by total shifts
-  const sortByQuotaRoom = (list: Doctor[], weekend: boolean) => {
-    list.sort((a, b) => {
-      // Primary: how much room they have for THIS type (descending — more room first)
-      const roomA = weekend
-        ? a.weekend_quota - weekendCounts.get(a.id)!
-        : a.weekday_quota - weekdayCounts.get(a.id)!;
-      const roomB = weekend
-        ? b.weekend_quota - weekendCounts.get(b.id)!
-        : b.weekday_quota - weekdayCounts.get(b.id)!;
-      if (roomB !== roomA) return roomB - roomA;
-      // Secondary: lowest total shifts
-      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-      return totalA - totalB;
-    });
-  };
 
   // ===== PASS 2: Fill remaining days =====
   let lastAssigned: string | null = null;
 
   for (const day of days) {
-    // Already assigned in pass 1
     if (assignments.has(day)) {
       lastAssigned = assignments.get(day)!;
       continue;
@@ -156,23 +152,9 @@ export function generateSchedule(
 
     // Prefer doctors who still have quota for THIS specific type
     const withTypeQuota = available.filter(doc => hasQuota(doc.id, weekend));
-
     const pool = withTypeQuota.length > 0 ? withTypeQuota : available;
 
-    pool.sort((a, b) => {
-      // Sort by how far under their specific-type quota they are (descending room)
-      const roomA = weekend
-        ? a.weekend_quota - weekendCounts.get(a.id)!
-        : a.weekday_quota - weekdayCounts.get(a.id)!;
-      const roomB = weekend
-        ? b.weekend_quota - weekendCounts.get(b.id)!
-        : b.weekday_quota - weekdayCounts.get(b.id)!;
-      if (roomB !== roomA) return roomB - roomA; // more room first
-      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-      return totalA - totalB;
-    });
-
+    sortByQuotaRoom(pool, weekend);
     assignments.set(day, pool[0].id);
     addCount(pool[0].id, weekend);
   }
