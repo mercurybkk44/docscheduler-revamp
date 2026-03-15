@@ -14,7 +14,144 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      doctors: {
+        Row: {
+          color_index: number
+          created_at: string
+          id: string
+          name: string
+          weekday_quota: number
+          weekend_quota: number
+        }
+        Insert: {
+          color_index?: number
+          created_at?: string
+          id?: string
+          name: string
+          weekday_quota?: number
+          weekend_quota?: number
+        }
+        Update: {
+          color_index?: number
+          created_at?: string
+          id?: string
+          name?: string
+          weekday_quota?: number
+          weekend_quota?: number
+        }
+        Relationships: []
+      }
+      holidays: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          label: string | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          label?: string | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          label?: string | null
+        }
+        Relationships: []
+      }
+      preferred_dates: {
+        Row: {
+          created_at: string
+          date: string
+          doctor_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          doctor_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          doctor_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preferred_dates_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedules: {
+        Row: {
+          created_at: string
+          date: string
+          doctor_id: string
+          id: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          doctor_id: string
+          id?: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          doctor_id?: string
+          id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      unavailable_dates: {
+        Row: {
+          created_at: string
+          date: string
+          doctor_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          doctor_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          doctor_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unavailable_dates_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
