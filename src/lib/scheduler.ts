@@ -90,6 +90,24 @@ export function generateSchedule(
     addCount(candidates[0].id, weekend);
   }
 
+  // Helper: sort doctors by type-specific quota room (most room first), then by total shifts
+  const sortByQuotaRoom = (list: Doctor[], weekend: boolean) => {
+    list.sort((a, b) => {
+      // Primary: how much room they have for THIS type (descending — more room first)
+      const roomA = weekend
+        ? a.weekend_quota - weekendCounts.get(a.id)!
+        : a.weekday_quota - weekdayCounts.get(a.id)!;
+      const roomB = weekend
+        ? b.weekend_quota - weekendCounts.get(b.id)!
+        : b.weekday_quota - weekdayCounts.get(b.id)!;
+      if (roomB !== roomA) return roomB - roomA;
+      // Secondary: lowest total shifts
+      const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
+      const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
+      return totalA - totalB;
+    });
+  };
+
   // ===== PASS 2: Fill remaining days =====
   let lastAssigned: string | null = null;
 
@@ -108,11 +126,7 @@ export function generateSchedule(
     );
 
     if (eligible.length > 0) {
-      eligible.sort((a, b) => {
-        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-        return totalA - totalB;
-      });
+      sortByQuotaRoom(eligible, weekend);
       assignments.set(day, eligible[0].id);
       addCount(eligible[0].id, weekend);
       lastAssigned = eligible[0].id;
@@ -125,16 +139,11 @@ export function generateSchedule(
     );
 
     if (fallback.length > 0) {
-      fallback.sort((a, b) => {
-        const totalA = weekdayCounts.get(a.id)! + weekendCounts.get(a.id)!;
-        const totalB = weekdayCounts.get(b.id)! + weekendCounts.get(b.id)!;
-        return totalA - totalB;
-      });
+      sortByQuotaRoom(fallback, weekend);
       assignments.set(day, fallback[0].id);
       addCount(fallback[0].id, weekend);
       lastAssigned = fallback[0].id;
     } else {
-      // No doctor with quota available — will be handled in pass 4
       lastAssigned = null;
     }
   }
