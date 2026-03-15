@@ -95,6 +95,29 @@ export default function UnavailablePage() {
   const doctorUnavailDates = unavailable.filter(u => u.doctor_id === selectedDoctorId).sort((a, b) => a.date.localeCompare(b.date));
   const doctorPrefDates = preferred.filter(p => p.doctor_id === selectedDoctorId).sort((a, b) => a.date.localeCompare(b.date));
 
+  // Count weekdays and weekend days in next month
+  const totalWeekdays = useMemo(() => {
+    let count = 0;
+    const d = new Date(nextMonthStart);
+    while (d <= nextMonthEnd) {
+      const day = d.getDay();
+      if (day !== 0 && day !== 6) count++;
+      d.setDate(d.getDate() + 1);
+    }
+    return count;
+  }, [nextMonthStart, nextMonthEnd]);
+
+  const totalWeekendDays = useMemo(() => {
+    let count = 0;
+    const d = new Date(nextMonthStart);
+    while (d <= nextMonthEnd) {
+      const day = d.getDay();
+      if (day === 0 || day === 6) count++;
+      d.setDate(d.getDate() + 1);
+    }
+    return count;
+  }, [nextMonthStart, nextMonthEnd]);
+
   // Restrict calendar to only next month
   const disabledDays = (date: Date) => date < nextMonthStart || date > nextMonthEnd;
 
