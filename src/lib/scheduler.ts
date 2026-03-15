@@ -5,6 +5,11 @@ function isWeekendOrHoliday(dateStr: string, holidayDates: Set<string>): boolean
   return d.getDay() === 0 || d.getDay() === 6 || holidayDates.has(dateStr);
 }
 
+function isFriday(dateStr: string): boolean {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.getDay() === 5;
+}
+
 function getDaysInMonth(year: number, month: number): string[] {
   const days: string[] = [];
   const daysCount = new Date(year, month + 1, 0).getDate();
