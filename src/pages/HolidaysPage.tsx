@@ -9,8 +9,10 @@ import { Holiday } from '@/lib/types';
 import { loadHolidays, addHoliday, deleteHoliday } from '@/lib/store';
 import { getNextMonth, getNextMonthLabel } from '@/lib/nextMonth';
 import { toast } from 'sonner';
+import { useI18n } from '@/lib/i18n';
 
 export default function HolidaysPage() {
+  const { t } = useI18n();
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,13 +22,9 @@ export default function HolidaysPage() {
   const nextMonthEnd = useMemo(() => endOfMonth(nextMonthStart), [nextMonthStart]);
 
   const fetchHolidays = async () => {
-    try {
-      setHolidays(await loadHolidays());
-    } catch (e) {
-      toast.error('Failed to load holidays');
-    } finally {
-      setLoading(false);
-    }
+    try { setHolidays(await loadHolidays()); }
+    catch (e) { toast.error(t('error.loadFailed')); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchHolidays(); }, []);
@@ -37,66 +35,43 @@ export default function HolidaysPage() {
     if (!dates) return;
     const newDateStrs = new Set(dates.map(d => format(d, 'yyyy-MM-dd')));
     const existingDateStrs = new Set(holidays.map(h => h.date));
-
-    for (const ds of newDateStrs) {
-      if (!existingDateStrs.has(ds)) {
-        try { await addHoliday(ds); } catch (e) { /* duplicate */ }
-      }
-    }
-
-    for (const h of holidays) {
-      if (!newDateStrs.has(h.date)) {
-        await deleteHoliday(h.id);
-      }
-    }
-
+    for (const ds of newDateStrs) { if (!existingDateStrs.has(ds)) { try { await addHoliday(ds); } catch (e) { /* dup */ } } }
+    for (const h of holidays) { if (!newDateStrs.has(h.date)) { await deleteHoliday(h.id); } }
     await fetchHolidays();
   };
 
   const removeHoliday = async (id: string) => {
-    try {
-      await deleteHoliday(id);
-      await fetchHolidays();
-      toast.success('Holiday removed');
-    } catch (e) {
-      toast.error('Failed to remove holiday');
-    }
+    try { await deleteHoliday(id); await fetchHolidays(); toast.success(t('holidays.removed')); }
+    catch (e) { toast.error(t('error.removeFailed')); }
   };
 
   const disabledDays = (date: Date) => date < nextMonthStart || date > nextMonthEnd;
 
-  if (loading) return <div className="text-center py-16 text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="text-center py-16 text-muted-foreground">{t('common.loading')}</div>;
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <PartyPopper className="h-6 w-6 text-primary" />
-          Holidays — {monthLabel}
+          {t('holidays.title')} — {monthLabel}
         </h1>
-        <p className="text-muted-foreground mt-1">Configure public holidays for next month. No doctors will be scheduled on these dates.</p>
+        <p className="text-muted-foreground mt-1">{t('holidays.subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
-          <CardHeader><CardTitle className="text-base">Select Holiday Dates</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('holidays.selectDates')}</CardTitle></CardHeader>
           <CardContent className="flex justify-center">
-            <Calendar
-              mode="multiple"
-              selected={selectedDates}
-              onSelect={handleSelect}
-              defaultMonth={nextMonthStart}
-              disabled={disabledDays}
-              className="pointer-events-auto"
-            />
+            <Calendar mode="multiple" selected={selectedDates} onSelect={handleSelect} defaultMonth={nextMonthStart} disabled={disabledDays} className="pointer-events-auto" />
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-base">Holidays ({holidays.length})</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('holidays.count')} ({holidays.length})</CardTitle></CardHeader>
           <CardContent>
             {holidays.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No holidays configured. Click dates on the calendar to add them.</p>
+              <p className="text-sm text-muted-foreground">{t('holidays.noHolidays')}</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {holidays.map(h => (
