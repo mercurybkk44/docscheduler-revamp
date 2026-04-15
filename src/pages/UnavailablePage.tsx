@@ -208,9 +208,27 @@ export default function UnavailablePage() {
                 />
               </div>
               <div>
-                <p className="text-sm font-medium mb-2 text-muted-foreground">
-                  Selected ({doctorUnavailDates.length})
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Selected ({doctorUnavailDates.length})
+                  </p>
+                  {doctorUnavailDates.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={async () => {
+                        try {
+                          await setUnavailableDates(selectedDoctorId, []);
+                          setUnavailable(prev => prev.filter(u => u.doctor_id !== selectedDoctorId));
+                          toast.success('All unavailable dates cleared');
+                        } catch { toast.error('Failed to clear'); }
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  )}
+                </div>
                 {doctorUnavailDates.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No unavailable dates set.</p>
                 ) : (
@@ -249,9 +267,27 @@ export default function UnavailablePage() {
                 />
               </div>
               <div>
-                <p className="text-sm font-medium mb-2 text-muted-foreground">
-                  Selected ({doctorPrefDates.length})
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Selected ({doctorPrefDates.length})
+                  </p>
+                  {doctorPrefDates.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs text-yellow-600 border-yellow-400/30 hover:bg-yellow-50"
+                      onClick={async () => {
+                        try {
+                          await setPreferredDates(selectedDoctorId, []);
+                          setPreferred(prev => prev.filter(p => p.doctor_id !== selectedDoctorId));
+                          toast.success('All preferred dates cleared');
+                        } catch { toast.error('Failed to clear'); }
+                      }}
+                    >
+                      Clear All
+                    </Button>
+                  )}
+                </div>
                 {doctorPrefDates.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No preferred dates set.</p>
                 ) : (
