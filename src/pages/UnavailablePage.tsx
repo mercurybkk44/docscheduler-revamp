@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { format, endOfMonth } from 'date-fns';
 import { CalendarOff, X, Star, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,8 +10,10 @@ import { Doctor, DOCTOR_COLORS } from '@/lib/types';
 import { loadDoctors, loadUnavailableDates, setUnavailableDates, loadPreferredDates, setPreferredDates } from '@/lib/store';
 import { getNextMonth, getNextMonthLabel } from '@/lib/nextMonth';
 import { toast } from 'sonner';
+import { useI18n } from '@/lib/i18n';
 
 export default function UnavailablePage() {
+  const { t } = useI18n();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [unavailable, setUnavailable] = useState<{ doctor_id: string; date: string }[]>([]);
   const [preferred, setPreferred] = useState<{ doctor_id: string; date: string }[]>([]);
@@ -32,7 +34,7 @@ export default function UnavailablePage() {
         setPreferred(await loadPreferredDates());
         if (docs.length > 0) setSelectedDoctorId(docs[0].id);
       } catch (e) {
-        toast.error('Failed to load data');
+        toast.error(t('error.loadFailed'));
       } finally {
         setLoading(false);
       }
@@ -51,7 +53,7 @@ export default function UnavailablePage() {
       const otherDates = unavailable.filter(u => u.doctor_id !== selectedDoctorId);
       setUnavailable([...otherDates, ...dateStrs.map(date => ({ doctor_id: selectedDoctorId, date }))]);
     } catch (e) {
-      toast.error('Failed to save');
+      toast.error(t('error.saveFailed'));
     }
   };
 
@@ -63,7 +65,7 @@ export default function UnavailablePage() {
       const otherDates = preferred.filter(p => p.doctor_id !== selectedDoctorId);
       setPreferred([...otherDates, ...dateStrs.map(date => ({ doctor_id: selectedDoctorId, date }))]);
     } catch (e) {
-      toast.error('Failed to save');
+      toast.error(t('error.saveFailed'));
     }
   };
 
@@ -73,9 +75,9 @@ export default function UnavailablePage() {
     try {
       await setUnavailableDates(selectedDoctorId, doctorDates);
       setUnavailable(updated);
-      toast.success('Date removed');
+      toast.success(t('avail.dateRemoved'));
     } catch (e) {
-      toast.error('Failed to remove');
+      toast.error(t('error.removeFailed'));
     }
   };
 
@@ -85,9 +87,9 @@ export default function UnavailablePage() {
     try {
       await setPreferredDates(selectedDoctorId, doctorDates);
       setPreferred(updated);
-      toast.success('Date removed');
+      toast.success(t('avail.dateRemoved'));
     } catch (e) {
-      toast.error('Failed to remove');
+      toast.error(t('error.removeFailed'));
     }
   };
 
@@ -95,40 +97,30 @@ export default function UnavailablePage() {
   const doctorUnavailDates = unavailable.filter(u => u.doctor_id === selectedDoctorId).sort((a, b) => a.date.localeCompare(b.date));
   const doctorPrefDates = preferred.filter(p => p.doctor_id === selectedDoctorId).sort((a, b) => a.date.localeCompare(b.date));
 
-  // Count weekdays and weekend days in next month
   const totalWeekdays = useMemo(() => {
     let count = 0;
     const d = new Date(nextMonthStart);
-    while (d <= nextMonthEnd) {
-      const day = d.getDay();
-      if (day !== 0 && day !== 6) count++;
-      d.setDate(d.getDate() + 1);
-    }
+    while (d <= nextMonthEnd) { if (d.getDay() !== 0 && d.getDay() !== 6) count++; d.setDate(d.getDate() + 1); }
     return count;
   }, [nextMonthStart, nextMonthEnd]);
 
   const totalWeekendDays = useMemo(() => {
     let count = 0;
     const d = new Date(nextMonthStart);
-    while (d <= nextMonthEnd) {
-      const day = d.getDay();
-      if (day === 0 || day === 6) count++;
-      d.setDate(d.getDate() + 1);
-    }
+    while (d <= nextMonthEnd) { if (d.getDay() === 0 || d.getDay() === 6) count++; d.setDate(d.getDate() + 1); }
     return count;
   }, [nextMonthStart, nextMonthEnd]);
 
-  // Restrict calendar to only next month
   const disabledDays = (date: Date) => date < nextMonthStart || date > nextMonthEnd;
 
-  if (loading) return <div className="text-center py-16 text-muted-foreground">Loading...</div>;
+  if (loading) return <div className="text-center py-16 text-muted-foreground">{t('common.loading')}</div>;
 
   if (doctors.length === 0) {
     return (
       <div className="max-w-2xl mx-auto text-center py-16">
         <CalendarOff className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h2 className="text-xl font-semibold mb-2">No doctors added yet</h2>
-        <p className="text-muted-foreground">Add doctors first on the Doctors page.</p>
+        <h2 className="text-xl font-semibold mb-2">{t('doctors.noDoctors')}</h2>
+        <p className="text-muted-foreground">{t('doctors.addFirst')}</p>
       </div>
     );
   }
@@ -138,17 +130,17 @@ export default function UnavailablePage() {
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <CalendarOff className="h-6 w-6 text-primary" />
-          Doctor Availability — {monthLabel}
+          {t('avail.title')} — {monthLabel}
         </h1>
-        <p className="text-muted-foreground mt-1">Set unavailable and preferred dates for each doctor for next month.</p>
+        <p className="text-muted-foreground mt-1">{t('avail.subtitle')}</p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Select Doctor</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t('avail.selectDoctor')}</CardTitle></CardHeader>
         <CardContent>
           <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
             <SelectTrigger className="w-full sm:w-64">
-              <SelectValue placeholder="Select a doctor" />
+              <SelectValue placeholder={t('avail.selectPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {doctors.map(doc => (
@@ -171,14 +163,14 @@ export default function UnavailablePage() {
               <Info className="h-5 w-5 text-primary mt-0.5 shrink-0" />
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">
-                  {selectedDoctor.name} — Shift Quota Summary
+                  {selectedDoctor.name} — {t('avail.quotaSummary')}
                 </p>
                 <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
-                  <span>Weekday shifts: <strong className="text-foreground">{selectedDoctor.weekday_quota}</strong> <span className="text-xs">/ {totalWeekdays} weekdays</span></span>
-                  <span>Weekend shifts: <strong className="text-foreground">{selectedDoctor.weekend_quota}</strong> <span className="text-xs">/ {totalWeekendDays} weekend days</span></span>
+                  <span>{t('avail.weekdayShifts')}: <strong className="text-foreground">{selectedDoctor.weekday_quota}</strong> <span className="text-xs">/ {totalWeekdays} {t('avail.weekdays')}</span></span>
+                  <span>{t('avail.weekendShifts')}: <strong className="text-foreground">{selectedDoctor.weekend_quota}</strong> <span className="text-xs">/ {totalWeekendDays} {t('avail.weekendDays')}</span></span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Mark dates this doctor <span className="font-medium text-destructive">cannot</span> work as unavailable, and dates they <span className="font-medium text-yellow-600">prefer</span> to work as preferred.
+                  {t('avail.helpText').replace('{unavail}', t('avail.markUnavail')).replace('{pref}', t('avail.markPref'))}
                 </p>
               </div>
             </div>
@@ -188,57 +180,36 @@ export default function UnavailablePage() {
 
       {selectedDoctor && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Unavailable Dates Panel */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <CalendarOff className="h-4 w-4 text-destructive" />
-                Unavailable Dates
+                {t('avail.unavailTitle')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-center">
-                <Calendar
-                  mode="multiple"
-                  selected={unavailDates}
-                  onSelect={handleUnavailSelect}
-                  defaultMonth={nextMonthStart}
-                  disabled={disabledDays}
-                  className="pointer-events-auto"
-                />
+                <Calendar mode="multiple" selected={unavailDates} onSelect={handleUnavailSelect} defaultMonth={nextMonthStart} disabled={disabledDays} className="pointer-events-auto" />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Selected ({doctorUnavailDates.length})
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('common.selected')} ({doctorUnavailDates.length})</p>
                   {doctorUnavailDates.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
+                    <Button variant="outline" size="sm" className="h-7 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
                       onClick={async () => {
-                        try {
-                          await setUnavailableDates(selectedDoctorId, []);
-                          setUnavailable(prev => prev.filter(u => u.doctor_id !== selectedDoctorId));
-                          toast.success('All unavailable dates cleared');
-                        } catch { toast.error('Failed to clear'); }
-                      }}
-                    >
-                      Clear All
-                    </Button>
+                        try { await setUnavailableDates(selectedDoctorId, []); setUnavailable(prev => prev.filter(u => u.doctor_id !== selectedDoctorId)); toast.success(t('avail.allUnavailCleared')); }
+                        catch { toast.error(t('error.clearFailed')); }
+                      }}>{t('common.clearAll')}</Button>
                   )}
                 </div>
                 {doctorUnavailDates.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No unavailable dates set.</p>
+                  <p className="text-sm text-muted-foreground">{t('avail.noUnavail')}</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {doctorUnavailDates.map(ud => (
                       <Badge key={ud.date} variant="secondary" className="gap-1 pr-1">
                         {format(new Date(ud.date + 'T00:00:00'), 'MMM d')}
-                        <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => removeUnavailDate(ud.date)}>
-                          <X className="h-3 w-3" />
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => removeUnavailDate(ud.date)}><X className="h-3 w-3" /></Button>
                       </Badge>
                     ))}
                   </div>
@@ -247,58 +218,37 @@ export default function UnavailablePage() {
             </CardContent>
           </Card>
 
-          {/* Preferred Dates Panel */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Star className="h-4 w-4 text-yellow-500" />
-                Preferred Shift Dates
+                {t('avail.prefTitle')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-center">
-                <Calendar
-                  mode="multiple"
-                  selected={prefDates}
-                  onSelect={handlePrefSelect}
-                  defaultMonth={nextMonthStart}
-                  disabled={disabledDays}
-                  className="pointer-events-auto"
-                />
+                <Calendar mode="multiple" selected={prefDates} onSelect={handlePrefSelect} defaultMonth={nextMonthStart} disabled={disabledDays} className="pointer-events-auto" />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Selected ({doctorPrefDates.length})
-                  </p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('common.selected')} ({doctorPrefDates.length})</p>
                   {doctorPrefDates.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-7 text-xs text-yellow-600 border-yellow-400/30 hover:bg-yellow-50"
+                    <Button variant="outline" size="sm" className="h-7 text-xs text-yellow-600 border-yellow-400/30 hover:bg-yellow-50"
                       onClick={async () => {
-                        try {
-                          await setPreferredDates(selectedDoctorId, []);
-                          setPreferred(prev => prev.filter(p => p.doctor_id !== selectedDoctorId));
-                          toast.success('All preferred dates cleared');
-                        } catch { toast.error('Failed to clear'); }
-                      }}
-                    >
-                      Clear All
-                    </Button>
+                        try { await setPreferredDates(selectedDoctorId, []); setPreferred(prev => prev.filter(p => p.doctor_id !== selectedDoctorId)); toast.success(t('avail.allPrefCleared')); }
+                        catch { toast.error(t('error.clearFailed')); }
+                      }}>{t('common.clearAll')}</Button>
                   )}
                 </div>
                 {doctorPrefDates.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No preferred dates set.</p>
+                  <p className="text-sm text-muted-foreground">{t('avail.noPref')}</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {doctorPrefDates.map(pd => (
                       <Badge key={pd.date} variant="secondary" className="gap-1 pr-1">
                         <Star className="h-3 w-3 text-yellow-500" />
                         {format(new Date(pd.date + 'T00:00:00'), 'MMM d')}
-                        <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => removePrefDate(pd.date)}>
-                          <X className="h-3 w-3" />
-                        </Button>
+                        <Button variant="ghost" size="icon" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => removePrefDate(pd.date)}><X className="h-3 w-3" /></Button>
                       </Badge>
                     ))}
                   </div>
