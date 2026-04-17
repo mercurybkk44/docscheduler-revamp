@@ -22,7 +22,7 @@ const translations = {
   'doctors.subtitle': { en: 'Add up to 7 doctors and configure their shift quotas.', th: 'เพิ่มแพทย์ได้สูงสุด 7 คน และกำหนดโควต้าเวรของแต่ละคน' },
   'doctors.addNew': { en: 'Add New Doctor', th: 'เพิ่มแพทย์ใหม่' },
   'doctors.name': { en: 'Name', th: 'ชื่อ' },
-  'doctors.namePlaceholder': { en: 'Dr. Smith', th: 'นพ. สมชาย' },
+  'doctors.namePlaceholder': { en: 'e.g. Dr. Strange ✨', th: 'เช่น นพ.กิตติ หรือ พญ.ดาว ✨' },
   'doctors.weekdayShifts': { en: 'Weekday Shifts', th: 'เวรวันธรรมดา' },
   'doctors.weekendShifts': { en: 'Weekend Shifts', th: 'เวรวันหยุด' },
   'doctors.addButton': { en: 'Add Doctor', th: 'เพิ่มแพทย์' },

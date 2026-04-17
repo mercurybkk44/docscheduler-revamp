@@ -183,3 +183,36 @@
   font-weight: 700;
   color: hsl(var(--foreground));
 }
+
+/* PWA safe area — bottom nav clears notch / home indicator */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* FullCalendar mobile — tighter, readable on small screens */
+.fc-mobile-wrapper .fc .fc-daygrid-day {
+  min-height: 56px;
+}
+
+@media (max-width: 480px) {
+  .fc-mobile-wrapper .fc .fc-daygrid-day {
+    min-height: 44px;
+  }
+  .fc-mobile-wrapper .fc .fc-event {
+    font-size: 0.6rem;
+    padding: 1px 2px;
+    border-radius: 4px;
+  }
+  .fc-mobile-wrapper .fc .fc-col-header-cell {
+    font-size: 0.6rem;
+    padding: 0.25rem 0;
+    letter-spacing: 0.02em;
+  }
+  .fc-mobile-wrapper .fc .fc-daygrid-day-number {
+    font-size: 0.7rem;
+    padding: 3px 4px;
+  }
+  .fc-mobile-wrapper .fc .fc-toolbar-title {
+    font-size: 0.9rem !important;
+  }
+}

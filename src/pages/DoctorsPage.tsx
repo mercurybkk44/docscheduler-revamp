@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Trash2, Plus, Users, Pencil } from "lucide-react";
-import { Doctor, DOCTOR_COLORS } from "@/lib/types";
+import { Doctor, DOCTOR_COLORS, DOCTOR_EMOJIS } from "@/lib/types";
 import { loadDoctors, saveDoctor, updateDoctor, deleteDoctor } from "@/lib/store";
 import { toast } from "sonner";
 import { useI18n } from "@/lib/i18n";
@@ -28,7 +28,7 @@ export default function DoctorsPage() {
     try {
       const docs = await loadDoctors();
       setDoctors(docs);
-    } catch (e) {
+    } catch {
       toast.error(t('error.loadFailed'));
     } finally {
       setLoading(false);
@@ -44,8 +44,8 @@ export default function DoctorsPage() {
       await saveDoctor({ name: name.trim(), weekday_quota: weekdayQuota, weekend_quota: weekendQuota, color_index: doctors.length });
       setName("");
       await fetchDoctors();
-      toast.success(t('doctors.added'));
-    } catch (e) {
+      toast.success(`${DOCTOR_EMOJIS[doctors.length]} ${t('doctors.added')}`);
+    } catch {
       toast.error(t('error.saveFailed'));
     }
   };
@@ -55,7 +55,7 @@ export default function DoctorsPage() {
       await deleteDoctor(id);
       await fetchDoctors();
       toast.success(t('doctors.removed'));
-    } catch (e) {
+    } catch {
       toast.error(t('error.removeFailed'));
     }
   };
@@ -75,7 +75,7 @@ export default function DoctorsPage() {
       setEditDialogOpen(false);
       await fetchDoctors();
       toast.success(t('doctors.updated'));
-    } catch (e) {
+    } catch {
       toast.error(t('error.saveFailed'));
     }
   };
@@ -92,13 +92,26 @@ export default function DoctorsPage() {
         <p className="text-muted-foreground mt-1">{t('doctors.subtitle')}</p>
       </div>
 
+      {/* Next emoji preview */}
+      {doctors.length < 7 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+          <span className="text-xl">{DOCTOR_EMOJIS[doctors.length]}</span>
+          <span>{t('doctors.addNew')} #{doctors.length + 1}</span>
+        </div>
+      )}
+
       <Card>
         <CardHeader><CardTitle className="text-base">{t('doctors.addNew')}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label>{t('doctors.name')}</Label>
-              <Input placeholder={t('doctors.namePlaceholder')} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addDoctor()} />
+              <Input
+                placeholder={t('doctors.namePlaceholder')}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addDoctor()}
+              />
             </div>
             <div className="space-y-2">
               <Label>{t('doctors.weekdayShifts')}</Label>
@@ -120,19 +133,28 @@ export default function DoctorsPage() {
         <div className="space-y-3">
           {doctors.map((doc) => (
             <Card key={doc.id} className="overflow-hidden">
-              <div className="flex items-center gap-4 p-4">
-                <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                  style={{ backgroundColor: DOCTOR_COLORS[doc.color_index] + "22", color: DOCTOR_COLORS[doc.color_index] }}>
-                  {doc.name.charAt(0).toUpperCase()}
+              {/* Color strip */}
+              <div className="h-1" style={{ backgroundColor: DOCTOR_COLORS[doc.color_index] }} />
+              <div className="flex items-center gap-3 p-4">
+                {/* Emoji avatar */}
+                <div
+                  className="h-11 w-11 rounded-full flex items-center justify-center text-xl shrink-0"
+                  style={{ backgroundColor: DOCTOR_COLORS[doc.color_index] + '18' }}
+                >
+                  {DOCTOR_EMOJIS[doc.color_index]}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold truncate">{doc.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {t('doctors.weekdayLabel')}: {doc.weekday_quota} {t('doctors.shifts')} · {t('doctors.weekendLabel')}: {doc.weekend_quota} {t('doctors.shifts')}
+                  <p className="text-xs text-muted-foreground">
+                    {t('doctors.weekdayLabel')}: <strong>{doc.weekday_quota}</strong> {t('doctors.shifts')} · {t('doctors.weekendLabel')}: <strong>{doc.weekend_quota}</strong> {t('doctors.shifts')}
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => openEdit(doc)} className="shrink-0"><Pencil className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)} className="text-destructive hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => openEdit(doc)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)} className="text-destructive hover:text-destructive shrink-0">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             </Card>
           ))}
@@ -141,7 +163,12 @@ export default function DoctorsPage() {
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>{t('doctors.editTitle')}</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {editDoctor && <span className="text-xl">{DOCTOR_EMOJIS[editDoctor.color_index]}</span>}
+              {t('doctors.editTitle')}
+            </DialogTitle>
+          </DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
               <Label>{t('doctors.name')}</Label>

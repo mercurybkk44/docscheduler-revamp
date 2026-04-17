@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Doctor, DOCTOR_COLORS } from '@/lib/types';
+import { Doctor, DOCTOR_COLORS, DOCTOR_EMOJIS } from '@/lib/types';
 import { loadDoctors, loadUnavailableDates, setUnavailableDates, loadPreferredDates, setPreferredDates } from '@/lib/store';
 import { getNextMonth, getNextMonthLabel } from '@/lib/nextMonth';
 import { toast } from 'sonner';
@@ -146,7 +146,7 @@ export default function UnavailablePage() {
               {doctors.map(doc => (
                 <SelectItem key={doc.id} value={doc.id}>
                   <span className="flex items-center gap-2">
-                    <span className="h-3 w-3 rounded-full inline-block" style={{ backgroundColor: DOCTOR_COLORS[doc.color_index] }} />
+                    <span className="text-base leading-none">{DOCTOR_EMOJIS[doc.color_index]}</span>
                     {doc.name}
                   </span>
                 </SelectItem>

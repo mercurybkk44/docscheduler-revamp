@@ -1,12 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { Users, CalendarOff, CalendarDays, PartyPopper, Menu, Globe } from 'lucide-react';
-import { useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Users, CalendarOff, CalendarDays, PartyPopper, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useI18n } from '@/lib/i18n';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
   const { lang, setLang, t } = useI18n();
 
   const navItems = [
@@ -20,13 +17,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
       <header className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container flex h-14 sm:h-16 items-center justify-between gap-4">
+        <div className="container flex h-14 items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
               <CalendarDays className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="font-bold text-lg">DocScheduler</span>
+            <span className="font-bold text-lg tracking-tight">DocScheduler</span>
           </div>
 
           {/* Desktop nav */}
@@ -54,52 +52,45 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </nav>
 
-          {/* Mobile */}
-          <div className="flex items-center gap-1 md:hidden">
-            <Button variant="ghost" size="icon" onClick={toggleLang}>
-              <Globe className="h-4 w-4" />
-            </Button>
-            <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-64 p-0">
-                <SheetHeader className="p-4 border-b">
-                  <SheetTitle className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
-                      <CalendarDays className="h-3.5 w-3.5 text-primary-foreground" />
-                    </div>
-                    DocScheduler
-                  </SheetTitle>
-                </SheetHeader>
-                <nav className="flex flex-col p-2 gap-1">
-                  {navItems.map(({ to, label, icon: Icon }) => (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      end
-                      onClick={() => setOpen(false)}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        }`
-                      }
-                    >
-                      <Icon className="h-4 w-4" />
-                      {label}
-                    </NavLink>
-                  ))}
-                </nav>
-              </SheetContent>
-            </Sheet>
-          </div>
+          {/* Mobile lang toggle */}
+          <Button variant="ghost" size="icon" onClick={toggleLang} className="md:hidden">
+            <Globe className="h-4 w-4" />
+            <span className="sr-only">Toggle language</span>
+          </Button>
         </div>
       </header>
-      <main className="container px-4 sm:px-8 py-4 sm:py-8">{children}</main>
+
+      {/* Main content — pb-24 for bottom nav clearance on mobile */}
+      <main className="container px-4 sm:px-6 py-4 sm:py-8 pb-24 md:pb-8">
+        {children}
+      </main>
+
+      {/* Mobile bottom navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card/95 backdrop-blur-md border-t pb-safe">
+        <div className="flex">
+          {navItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end
+              className={({ isActive }) =>
+                `flex-1 flex flex-col items-center gap-1 py-3 px-1 text-xs font-medium transition-colors ${
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className={`p-1.5 rounded-lg transition-colors ${isActive ? 'bg-primary/10' : ''}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="leading-none">{label}</span>
+                </>
+              )}
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

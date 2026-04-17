@@ -50,3 +50,5 @@ export const DOCTOR_BG_COLORS = [
   'hsl(210, 60%, 93%)',
   'hsl(140, 50%, 92%)',
 ];
+
+export const DOCTOR_EMOJIS = ['🦁', '🐯', '🦊', '🐻', '🦄', '🐸', '🐧'];

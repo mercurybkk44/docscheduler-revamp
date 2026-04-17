@@ -1,139 +1,112 @@
-import { supabase } from '@/integrations/supabase/client';
 import { Doctor, UnavailableDate, PreferredDate, Holiday, ScheduleEntry } from './types';
+
+const KEYS = {
+  doctors: 'docscheduler-doctors',
+  unavailable: 'docscheduler-unavailable',
+  preferred: 'docscheduler-preferred',
+  holidays: 'docscheduler-holidays',
+  schedules: 'docscheduler-schedules',
+};
+
+function read<T>(key: string): T[] {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function write<T>(key: string, data: T[]): void {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function uuid(): string {
+  return crypto.randomUUID();
+}
 
 // Doctors
 export async function loadDoctors(): Promise<Doctor[]> {
-  const { data, error } = await supabase.from('doctors').select('*').order('color_index');
-  if (error) throw error;
-  return (data || []).map(d => ({
-    id: d.id,
-    name: d.name,
-    weekday_quota: d.weekday_quota,
-    weekend_quota: d.weekend_quota,
-    color_index: d.color_index,
-  }));
+  return read<Doctor>(KEYS.doctors).sort((a, b) => a.color_index - b.color_index);
 }
 
 export async function saveDoctor(doctor: Omit<Doctor, 'id'>): Promise<Doctor> {
-  const { data, error } = await supabase.from('doctors').insert({
-    name: doctor.name,
-    weekday_quota: doctor.weekday_quota,
-    weekend_quota: doctor.weekend_quota,
-    color_index: doctor.color_index,
-  }).select().single();
-  if (error) throw error;
-  return data as Doctor;
+  const doctors = read<Doctor>(KEYS.doctors);
+  const newDoctor: Doctor = { ...doctor, id: uuid() };
+  write(KEYS.doctors, [...doctors, newDoctor]);
+  return newDoctor;
 }
 
 export async function updateDoctor(id: string, updates: Partial<Doctor>): Promise<void> {
-  const { error } = await supabase.from('doctors').update(updates).eq('id', id);
-  if (error) throw error;
+  const doctors = read<Doctor>(KEYS.doctors);
+  write(KEYS.doctors, doctors.map(d => d.id === id ? { ...d, ...updates } : d));
 }
 
 export async function deleteDoctor(id: string): Promise<void> {
-  const { error } = await supabase.from('doctors').delete().eq('id', id);
-  if (error) throw error;
+  write(KEYS.doctors, read<Doctor>(KEYS.doctors).filter(d => d.id !== id));
+  write(KEYS.unavailable, read<UnavailableDate>(KEYS.unavailable).filter(u => u.doctor_id !== id));
+  write(KEYS.preferred, read<PreferredDate>(KEYS.preferred).filter(p => p.doctor_id !== id));
 }
 
 // Unavailable Dates
 export async function loadUnavailableDates(): Promise<UnavailableDate[]> {
-  const { data, error } = await supabase.from('unavailable_dates').select('*');
-  if (error) throw error;
-  return (data || []) as UnavailableDate[];
+  return read<UnavailableDate>(KEYS.unavailable);
 }
 
 export async function setUnavailableDates(doctorId: string, dates: string[]): Promise<void> {
-  // Delete existing for this doctor
-  await supabase.from('unavailable_dates').delete().eq('doctor_id', doctorId);
-  if (dates.length > 0) {
-    const { error } = await supabase.from('unavailable_dates').insert(
-      dates.map(date => ({ doctor_id: doctorId, date }))
-    );
-    if (error) throw error;
-  }
+  const existing = read<UnavailableDate>(KEYS.unavailable).filter(u => u.doctor_id !== doctorId);
+  write(KEYS.unavailable, [...existing, ...dates.map(date => ({ id: uuid(), doctor_id: doctorId, date }))]);
 }
 
 // Preferred Dates
 export async function loadPreferredDates(): Promise<PreferredDate[]> {
-  const { data, error } = await supabase.from('preferred_dates').select('*');
-  if (error) throw error;
-  return (data || []) as PreferredDate[];
+  return read<PreferredDate>(KEYS.preferred);
 }
 
 export async function setPreferredDates(doctorId: string, dates: string[]): Promise<void> {
-  await supabase.from('preferred_dates').delete().eq('doctor_id', doctorId);
-  if (dates.length > 0) {
-    const { error } = await supabase.from('preferred_dates').insert(
-      dates.map(date => ({ doctor_id: doctorId, date }))
-    );
-    if (error) throw error;
-  }
+  const existing = read<PreferredDate>(KEYS.preferred).filter(p => p.doctor_id !== doctorId);
+  write(KEYS.preferred, [...existing, ...dates.map(date => ({ id: uuid(), doctor_id: doctorId, date }))]);
 }
 
 // Holidays
 export async function loadHolidays(): Promise<Holiday[]> {
-  const { data, error } = await supabase.from('holidays').select('*').order('date');
-  if (error) throw error;
-  return (data || []) as Holiday[];
+  return read<Holiday>(KEYS.holidays).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 export async function addHoliday(date: string): Promise<Holiday> {
-  const { data, error } = await supabase.from('holidays').insert({ date }).select().single();
-  if (error) throw error;
-  return data as Holiday;
+  const holidays = read<Holiday>(KEYS.holidays);
+  const newHoliday: Holiday = { id: uuid(), date, label: null };
+  write(KEYS.holidays, [...holidays, newHoliday]);
+  return newHoliday;
 }
 
 export async function deleteHoliday(id: string): Promise<void> {
-  const { error } = await supabase.from('holidays').delete().eq('id', id);
-  if (error) throw error;
+  write(KEYS.holidays, read<Holiday>(KEYS.holidays).filter(h => h.id !== id));
 }
 
 // Schedule
 export async function loadSchedule(): Promise<ScheduleEntry[]> {
-  const { data, error } = await supabase.from('schedules').select('*');
-  if (error) throw error;
-  return (data || []).map(s => ({
-    id: s.id,
-    date: s.date,
-    doctor_id: s.doctor_id,
-    type: s.type as 'weekday' | 'weekend',
-  }));
+  return read<ScheduleEntry>(KEYS.schedules);
 }
 
 export async function saveScheduleEntries(entries: ScheduleEntry[], monthPrefix: string): Promise<void> {
-  // Delete existing entries for this month
-  await supabase.from('schedules').delete().like('date', `${monthPrefix}%`);
-  if (entries.length > 0) {
-    const { error } = await supabase.from('schedules').insert(
-      entries.map(e => ({ date: e.date, doctor_id: e.doctor_id, type: e.type }))
-    );
-    if (error) throw error;
-  }
+  const existing = read<ScheduleEntry>(KEYS.schedules).filter(s => !s.date.startsWith(monthPrefix));
+  write(KEYS.schedules, [...existing, ...entries.map(e => ({ ...e, id: e.id ?? uuid() }))]);
 }
 
 export async function updateScheduleEntry(date: string, doctorId: string, type: 'weekday' | 'weekend'): Promise<void> {
-  // Upsert by deleting existing and inserting new
-  await supabase.from('schedules').delete().eq('date', date);
-  const { error } = await supabase.from('schedules').insert({ date, doctor_id: doctorId, type });
-  if (error) throw error;
+  const entries = read<ScheduleEntry>(KEYS.schedules).filter(s => s.date !== date);
+  write(KEYS.schedules, [...entries, { id: uuid(), date, doctor_id: doctorId, type }]);
 }
 
 export async function deleteScheduleEntry(date: string): Promise<void> {
-  const { error } = await supabase.from('schedules').delete().eq('date', date);
-  if (error) throw error;
+  write(KEYS.schedules, read<ScheduleEntry>(KEYS.schedules).filter(s => s.date !== date));
 }
 
 export async function clearSchedule(): Promise<void> {
-  const { error } = await supabase.from('schedules').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  if (error) throw error;
+  write(KEYS.schedules, []);
 }
 
 export async function clearAllData(): Promise<void> {
-  const results = await Promise.all([
-    supabase.from('schedules').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-    supabase.from('holidays').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
-  ]);
-  for (const { error } of results) {
-    if (error) throw error;
-  }
+  write(KEYS.schedules, []);
+  write(KEYS.holidays, []);
 }
