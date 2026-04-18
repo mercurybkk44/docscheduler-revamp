@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, endOfMonth } from 'date-fns';
 import { CalendarOff, X, Star, Info } from 'lucide-react';
+
+const MAX_PREFERRED = 5;
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Doctor, DOCTOR_COLORS, DOCTOR_EMOJIS } from '@/lib/types';
+import { Doctor, DOCTOR_EMOJIS } from '@/lib/types';
 import { loadDoctors, loadUnavailableDates, setUnavailableDates, loadPreferredDates, setPreferredDates } from '@/lib/store';
 import { getNextMonth, getNextMonthLabel } from '@/lib/nextMonth';
 import { toast } from 'sonner';
@@ -59,6 +61,10 @@ export default function UnavailablePage() {
 
   const handlePrefSelect = async (dates: Date[] | undefined) => {
     if (!dates || !selectedDoctorId) return;
+    if (dates.length > MAX_PREFERRED) {
+      toast.warning(t('avail.prefLimitReached'));
+      return;
+    }
     const dateStrs = dates.map(d => format(d, 'yyyy-MM-dd'));
     try {
       await setPreferredDates(selectedDoctorId, dateStrs);
@@ -223,6 +229,9 @@ export default function UnavailablePage() {
               <CardTitle className="text-base flex items-center gap-2">
                 <Star className="h-4 w-4 text-yellow-500" />
                 {t('avail.prefTitle')}
+                <span className={`ml-auto text-xs font-normal px-2 py-0.5 rounded-full ${doctorPrefDates.length >= MAX_PREFERRED ? 'bg-yellow-100 text-yellow-700' : 'bg-muted text-muted-foreground'}`}>
+                  {doctorPrefDates.length}/{MAX_PREFERRED}
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -231,7 +240,7 @@ export default function UnavailablePage() {
               </div>
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-muted-foreground">{t('common.selected')} ({doctorPrefDates.length})</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('common.selected')} ({doctorPrefDates.length}/{MAX_PREFERRED})</p>
                   {doctorPrefDates.length > 0 && (
                     <Button variant="outline" size="sm" className="h-7 text-xs text-yellow-600 border-yellow-400/30 hover:bg-yellow-50"
                       onClick={async () => {

@@ -58,6 +58,8 @@ const translations = {
   'avail.dateRemoved': { en: 'Date removed', th: 'ลบวันที่แล้ว' },
   'avail.allUnavailCleared': { en: 'All unavailable dates cleared', th: 'ล้างวันที่ไม่ว่างทั้งหมดแล้ว' },
   'avail.allPrefCleared': { en: 'All preferred dates cleared', th: 'ล้างวันที่ต้องการทั้งหมดแล้ว' },
+  'avail.prefLimitReached': { en: 'Maximum 5 preferred dates allowed per doctor', th: 'เลือกวันที่ต้องการได้สูงสุด 5 วันต่อแพทย์ 1 คน' },
+  'avail.prefLimitInfo': { en: 'Max 5 dates', th: 'สูงสุด 5 วัน' },
 
   // Holidays Page
   'holidays.title': { en: 'Holidays', th: 'วันหยุดนักขัตฤกษ์' },
@@ -89,6 +91,12 @@ const translations = {
   'schedule.assigned': { en: 'assigned to', th: 'ได้รับมอบหมายให้' },
   'schedule.assignmentRemoved': { en: 'Assignment removed', th: 'ลบการกำหนดแล้ว' },
   'schedule.allCleared': { en: 'All data cleared (schedule, availability, holidays)', th: 'ล้างข้อมูลทั้งหมดแล้ว (ตารางเวร, วันว่าง, วันหยุด)' },
+
+  // Export
+  'export.pdf': { en: 'Export Image', th: 'บันทึกภาพ' },
+  'export.generating': { en: 'Capturing…', th: 'กำลังบันทึก…' },
+  'export.noSchedule': { en: 'Generate a schedule first', th: 'สร้างตารางเวรก่อนส่งออก' },
+  'export.pdfReady': { en: 'Image saved!', th: 'บันทึกภาพแล้ว!' },
 
   // Errors
   'error.loadFailed': { en: 'Failed to load data', th: 'โหลดข้อมูลไม่สำเร็จ' },

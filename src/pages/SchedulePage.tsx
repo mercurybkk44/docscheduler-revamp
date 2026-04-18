@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
-import { CalendarDays, RefreshCw, Trash2, CalendarOff, Star } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CalendarDays, RefreshCw, Trash2, CalendarOff, Star, ImageDown } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import {
   loadSchedule, saveScheduleEntries, updateScheduleEntry, deleteScheduleEntry, clearAllData
 } from '@/lib/store';
 import { generateSchedule } from '@/lib/scheduler';
+import { exportScheduleAsImage } from '@/lib/exportPdf';
 import { getNextMonth, getNextMonthLabel, getNextMonthPrefix } from '@/lib/nextMonth';
 import { toast } from 'sonner';
 import { useI18n } from '@/lib/i18n';
@@ -33,6 +34,10 @@ export default function SchedulePage() {
   const [editDate, setEditDate] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  // ref ครอบส่วนที่จะ capture เป็นภาพ (legend + calendar + summary cards)
+  const captureRef = useRef<HTMLDivElement>(null);
 
   const { month, year } = getNextMonth();
   const monthLabel = getNextMonthLabel();
@@ -57,13 +62,33 @@ export default function SchedulePage() {
   const handleGenerate = async () => {
     if (doctors.length === 0) { toast.error(t('schedule.addFirst')); return; }
     const holidaySet = new Set(holidays.map(h => h.date));
-    const newSchedule = generateSchedule(year, month, doctors, unavailable, preferred, holidaySet);
+
+    const prevMonth = month === 0 ? 11 : month - 1;
+    const prevYear = month === 0 ? year - 1 : year;
+    const lastDayOfPrevMonth = new Date(year, month, 0).getDate();
+    const lastDayStr = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(lastDayOfPrevMonth).padStart(2, '0')}`;
+    const prevMonthLastDoctorId = schedule.find(s => s.date === lastDayStr)?.doctor_id;
+
+    const newSchedule = generateSchedule(year, month, doctors, unavailable, preferred, holidaySet, prevMonthLastDoctorId);
     try {
       await saveScheduleEntries(newSchedule, monthStr);
       setSchedule(await loadSchedule());
       toast.success(`${t('schedule.generated')} ${monthLabel}`);
     } catch {
       toast.error(t('error.saveFailed'));
+    }
+  };
+
+  const handleExport = async () => {
+    if (!captureRef.current) { toast.error(t('export.noSchedule')); return; }
+    setExporting(true);
+    try {
+      await exportScheduleAsImage(captureRef.current, monthLabel);
+      toast.success(t('export.pdfReady'));
+    } catch {
+      toast.error(t('error.saveFailed'));
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -89,7 +114,7 @@ export default function SchedulePage() {
     const events: {
       id: string; title: string; start: string; allDay: boolean;
       backgroundColor: string; textColor: string; borderColor: string;
-      display?: string; classNames?: string[];
+      display?: string;
     }[] = [];
     for (const entry of schedule) {
       const doc = doctorMap.get(entry.doctor_id);
@@ -190,11 +215,17 @@ export default function SchedulePage() {
             <div className="flex-1 text-sm font-medium px-3 py-2 rounded-lg bg-secondary text-secondary-foreground text-center sm:text-left">
               {t('schedule.schedulingFor')}: <strong>{monthLabel}</strong>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={handleGenerate} className="flex-1 sm:flex-none gap-2">
                 <RefreshCw className="h-4 w-4" />
                 {t('schedule.generate')}
               </Button>
+              {monthSchedule.length > 0 && (
+                <Button variant="outline" onClick={handleExport} disabled={exporting} className="flex-1 sm:flex-none gap-2">
+                  <ImageDown className="h-4 w-4" />
+                  {exporting ? t('export.generating') : t('export.pdf')}
+                </Button>
+              )}
               {schedule.length > 0 && (
                 <Button variant="outline" onClick={handleReset} className="flex-1 sm:flex-none gap-2 text-destructive border-destructive/30 hover:bg-destructive/10">
                   <Trash2 className="h-4 w-4" />
@@ -206,118 +237,119 @@ export default function SchedulePage() {
         </CardContent>
       </Card>
 
-      {/* Doctor legend */}
-      {doctors.length > 0 && (
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          {doctors.map(doc => (
-            <div key={doc.id} className="flex items-center gap-1.5 text-sm">
-              <span className="text-base leading-none">{DOCTOR_EMOJIS[doc.color_index]}</span>
-              <span className="font-medium" style={{ color: DOCTOR_COLORS[doc.color_index] }}>{doc.name}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* ===== CAPTURE AREA: legend + calendar + summary ===== */}
+      <div ref={captureRef} className="space-y-5 bg-background rounded-xl p-1">
 
-      {/* Calendar */}
-      <Card className="overflow-hidden">
-        <CardContent className="p-2 sm:p-4 fc-mobile-wrapper">
-          <FullCalendar
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            initialDate={calendarDate}
-            key={calendarDate}
-            events={calendarEvents}
-            dateClick={handleDateClick}
-            headerToolbar={{ left: '', center: 'title', right: '' }}
-            height="auto"
-            fixedWeekCount={false}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Summary cards */}
-      {doctors.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="font-semibold text-base">
-            {t('schedule.summary')} — {monthLabel}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {summaryData.map(row => (
-              <Card key={row.doctor.id} className="overflow-hidden">
-                {/* Colored top strip */}
-                <div className="h-1.5" style={{ backgroundColor: DOCTOR_COLORS[row.doctor.color_index] }} />
-                <CardContent className="p-4 space-y-4">
-                  {/* Doctor name row */}
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="h-10 w-10 rounded-full flex items-center justify-center text-xl shrink-0"
-                      style={{ backgroundColor: DOCTOR_COLORS[row.doctor.color_index] + '20' }}
-                    >
-                      {DOCTOR_EMOJIS[row.doctor.color_index]}
-                    </div>
-                    <div>
-                      <p className="font-semibold leading-tight">{row.doctor.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t('schedule.quota')}: {row.doctor.weekday_quota}W · {row.doctor.weekend_quota}WE
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Stats row */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="flex flex-col items-center p-2 bg-muted/50 rounded-xl">
-                      <span className="text-xl font-bold">{row.weekdayShifts}</span>
-                      <span className="text-[10px] text-muted-foreground leading-tight text-center">{t('schedule.weekday')}</span>
-                    </div>
-                    <div className="flex flex-col items-center p-2 bg-muted/50 rounded-xl">
-                      <span className="text-xl font-bold">{row.weekendShifts}</span>
-                      <span className="text-[10px] text-muted-foreground leading-tight text-center">{t('schedule.weekend')}</span>
-                    </div>
-                    <div className="flex flex-col items-center p-2 rounded-xl" style={{ backgroundColor: DOCTOR_COLORS[row.doctor.color_index] + '18' }}>
-                      <span className="text-xl font-bold" style={{ color: DOCTOR_COLORS[row.doctor.color_index] }}>{row.totalShifts}</span>
-                      <span className="text-[10px] text-muted-foreground leading-tight text-center">{t('schedule.total')}</span>
-                    </div>
-                  </div>
-
-                  {/* Unavail dates */}
-                  {row.unavailDates.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5">
-                        <CalendarOff className="h-3 w-3" />
-                        <span>{t('schedule.unavailDates')}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {row.unavailDates.map(d => (
-                          <Badge key={d} variant="secondary" className="text-[10px] px-1.5 py-0.5">
-                            {format(new Date(d + 'T00:00:00'), 'MMM d')}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Preferred dates */}
-                  {row.prefDates.length > 0 && (
-                    <div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5">
-                        <Star className="h-3 w-3 text-yellow-500" />
-                        <span>{t('schedule.prefDates')}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {row.prefDates.map(d => (
-                          <Badge key={d} variant="secondary" className="text-[10px] px-1.5 py-0.5 bg-yellow-50 text-yellow-700 border-yellow-200">
-                            {format(new Date(d + 'T00:00:00'), 'MMM d')}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+        {/* Doctor legend */}
+        {doctors.length > 0 && (
+          <div className="flex flex-wrap gap-x-4 gap-y-2 px-1">
+            {doctors.map(doc => (
+              <div key={doc.id} className="flex items-center gap-1.5 text-sm">
+                <span className="text-base leading-none">{DOCTOR_EMOJIS[doc.color_index]}</span>
+                <span className="font-medium" style={{ color: DOCTOR_COLORS[doc.color_index] }}>{doc.name}</span>
+              </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Calendar */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-2 sm:p-4 fc-mobile-wrapper">
+            <FullCalendar
+              plugins={[dayGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              initialDate={calendarDate}
+              key={calendarDate}
+              events={calendarEvents}
+              dateClick={handleDateClick}
+              headerToolbar={{ left: '', center: 'title', right: '' }}
+              height="auto"
+              fixedWeekCount={false}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Summary cards */}
+        {doctors.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-semibold text-base px-1">
+              {t('schedule.summary')} — {monthLabel}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {summaryData.map(row => (
+                <Card key={row.doctor.id} className="overflow-hidden">
+                  <div className="h-1.5" style={{ backgroundColor: DOCTOR_COLORS[row.doctor.color_index] }} />
+                  <CardContent className="p-4 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="h-10 w-10 rounded-full flex items-center justify-center text-xl shrink-0"
+                        style={{ backgroundColor: DOCTOR_COLORS[row.doctor.color_index] + '20' }}
+                      >
+                        {DOCTOR_EMOJIS[row.doctor.color_index]}
+                      </div>
+                      <div>
+                        <p className="font-semibold leading-tight">{row.doctor.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t('schedule.quota')}: {row.doctor.weekday_quota}W · {row.doctor.weekend_quota}WE
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="flex flex-col items-center p-2 bg-muted/50 rounded-xl">
+                        <span className="text-xl font-bold">{row.weekdayShifts}</span>
+                        <span className="text-[10px] text-muted-foreground leading-tight text-center">{t('schedule.weekday')}</span>
+                      </div>
+                      <div className="flex flex-col items-center p-2 bg-muted/50 rounded-xl">
+                        <span className="text-xl font-bold">{row.weekendShifts}</span>
+                        <span className="text-[10px] text-muted-foreground leading-tight text-center">{t('schedule.weekend')}</span>
+                      </div>
+                      <div className="flex flex-col items-center p-2 rounded-xl" style={{ backgroundColor: DOCTOR_COLORS[row.doctor.color_index] + '18' }}>
+                        <span className="text-xl font-bold" style={{ color: DOCTOR_COLORS[row.doctor.color_index] }}>{row.totalShifts}</span>
+                        <span className="text-[10px] text-muted-foreground leading-tight text-center">{t('schedule.total')}</span>
+                      </div>
+                    </div>
+
+                    {row.unavailDates.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5">
+                          <CalendarOff className="h-3 w-3" />
+                          <span>{t('schedule.unavailDates')}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {row.unavailDates.map(d => (
+                            <Badge key={d} variant="secondary" className="text-[10px] px-1.5 py-0.5">
+                              {format(new Date(d + 'T00:00:00'), 'MMM d')}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {row.prefDates.length > 0 && (
+                      <div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5">
+                          <Star className="h-3 w-3 text-yellow-500" />
+                          <span>{t('schedule.prefDates')}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {row.prefDates.map(d => (
+                            <Badge key={d} variant="secondary" className="text-[10px] px-1.5 py-0.5 bg-yellow-50 text-yellow-700 border-yellow-200">
+                              {format(new Date(d + 'T00:00:00'), 'MMM d')}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+      {/* ===== END CAPTURE AREA ===== */}
 
       {/* Edit assignment dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
